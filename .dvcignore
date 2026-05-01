@@ -1,0 +1,20 @@
+# Padrões que o DVC ignora ao rastrear arquivos.
+# Ver: https://dvc.org/doc/user-guide/project-structure/dvcignore-files
+
+# Notebooks e checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Testes e coverage
+.pytest_cache/
+.coverage
+htmlcov/

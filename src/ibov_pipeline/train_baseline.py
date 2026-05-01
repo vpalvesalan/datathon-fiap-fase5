@@ -18,14 +18,10 @@ import logging
 
 import mlflow
 import numpy as np
-from sklearn.metrics import (
-    mean_absolute_error,
-    mean_absolute_percentage_error,
-    mean_squared_error,
-)
 
 from src.ibov_pipeline.config import cfg
 from src.ibov_pipeline.feature_engineering import load_artifacts
+from src.ibov_pipeline.train_lstm import compute_lineage_tags, compute_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -60,29 +56,22 @@ def _flatten_for_sklearn(X: np.ndarray) -> np.ndarray:
     return X.reshape(X.shape[0], -1)
 
 
-def _compute_metrics(
-    y_true_scaled: np.ndarray,
-    y_pred_scaled: np.ndarray,
-    scaler,
-) -> dict[str, float]:
-    """Calcula MAE, RMSE e MAPE na escala original do IBOV.
-
-    Args:
-        y_true_scaled: Valores reais normalizados.
-        y_pred_scaled: Previsões normalizadas.
-        scaler: MinMaxScaler para inverter a normalização.
+def _evaluate_on_holdout(model, scaler) -> dict[str, float]:
+    """Avalia o baseline no holdout imutável.
 
     Returns:
-        Dicionário de métricas.
+        Métricas prefixadas com 'holdout_' ou {} se holdout não existir.
     """
-    y_true = scaler.inverse_transform(y_true_scaled.reshape(-1, 1)).flatten()
-    y_pred = scaler.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
+    try:
+        X_hold = np.load(cfg.data.holdout_x_path)
+        y_hold = np.load(cfg.data.holdout_y_path)
+    except FileNotFoundError:
+        logger.warning("Holdout não encontrado — pulando avaliação no holdout.")
+        return {}
 
-    return {
-        "mae": float(mean_absolute_error(y_true, y_pred)),
-        "rmse": float(np.sqrt(mean_squared_error(y_true, y_pred))),
-        "mape": float(mean_absolute_percentage_error(y_true, y_pred)),
-    }
+    y_pred = model.predict(_flatten_for_sklearn(X_hold))
+    raw = compute_metrics(y_hold, y_pred, scaler)
+    return {f"holdout_{k}": v for k, v in raw.items()}
 
 
 # =============================================================================
@@ -116,6 +105,15 @@ def train_single_baseline(
     X_test_2d = _flatten_for_sklearn(X_test)
 
     with mlflow.start_run(run_name=f"baseline-{model_name}") as run:
+        # --- Tags de lineage e governança (mesmas do LSTM, com pipeline_stage='baseline') ---
+        tags = compute_lineage_tags(X_train, y_train)
+        tags.update({
+            "framework": "scikit-learn",
+            "pipeline_stage": "baseline",
+            "baseline_name": model_name,
+        })
+        mlflow.set_tags(tags)
+
         # --- Parâmetros ---
         mlflow.log_params(model_params)
         mlflow.log_param("model_class", model_class.__name__)
@@ -123,31 +121,31 @@ def train_single_baseline(
         mlflow.log_param("n_samples_train", X_train_2d.shape[0])
         mlflow.log_param("time_step", cfg.features.time_step)
 
-        # --- Tags de governança ---
-        mlflow.set_tags({
-            "model_type": "regression",
-            "framework": "scikit-learn",
-            "owner": cfg.registry.owner,
-            "phase": "datathon-fase05",
-            "pipeline_stage": "baseline",
-            "risk_level": cfg.registry.risk_level,
-        })
-
         # --- Treino ---
         model = model_class(**model_params)
         model.fit(X_train_2d, y_train)
-        y_pred = model.predict(X_test_2d)
+        y_pred = model.predict(X_test_2d).flatten()
 
-        # --- Métricas na escala real do IBOV ---
-        metrics = _compute_metrics(y_test, y_pred, scaler)
+        # --- Métricas na escala real (test set) ---
+        metrics = compute_metrics(y_test, y_pred, scaler)
         mlflow.log_metrics(metrics)
+
+        # --- Métricas no holdout imutável (comparação justa com LSTM) ---
+        holdout_metrics = _evaluate_on_holdout(model, scaler)
+        if holdout_metrics:
+            mlflow.log_metrics(holdout_metrics)
+            metrics.update(holdout_metrics)
 
         # --- Artefato do modelo ---
         mlflow.sklearn.log_model(model, artifact_path="model")
 
         logger.info(
-            "Baseline %s: MAE=%.2f pts | RMSE=%.2f pts | MAPE=%.4f%%",
-            model_name, metrics["mae"], metrics["rmse"], metrics["mape"] * 100,
+            "Baseline %s: MAE=%.2f pts | RMSE=%.2f pts | MAPE=%.4f%% | DirAcc=%.2f%%",
+            model_name,
+            metrics["mae"],
+            metrics["rmse"],
+            metrics["mape"] * 100,
+            metrics["directional_accuracy"] * 100,
         )
 
         return run.info.run_id, metrics
@@ -198,8 +196,7 @@ def run() -> list[dict]:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+    from src.ibov_pipeline.logging_config import setup_logging
+
+    setup_logging("train_baseline")
     run()

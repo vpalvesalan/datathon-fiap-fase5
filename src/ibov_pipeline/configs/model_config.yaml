@@ -9,7 +9,7 @@
 data:
   symbol: "^BVSP"                # Ticker do IBOV no Yahoo Finance
   start_date: "2019-01-01"       # Início da série histórica
-  end_date: "2026-04-30"                 # null = usa a data de hoje automaticamente
+  end_date: null                 # null = usa a data de hoje automaticamente
   raw_path: "data/raw/ibov/ibov_close.csv"          # Destino do CSV bruto
   processed_x_path: "data/processed/ibov/X.npy"    # Tensor de entrada LSTM
   processed_y_path: "data/processed/ibov/y.npy"    # Tensor de alvo LSTM
@@ -59,7 +59,7 @@ lstm:
 
 # --- KerasTuner (train_lstm.py) ---
 tuner:
-  enabled: false           # true = roda busca; false = usa hiperparâmetros fixos acima
+  enabled: true           # true = roda busca; false = usa hiperparâmetros fixos acima
   max_trials: 10
   executions_per_trial: 1
   directory: "data/tuning_dir"

@@ -6,7 +6,7 @@ datathon-grupo-xx/
 ├── .env.example                        # [Segurança] Template de variáveis de ambiente (MLFLOW_URI, OPENAI_API_KEY, LANGFUSE_KEY) — nunca commitar o .env real
 ├── .pre-commit-config.yaml             # [Qualidade] Hooks locais: ruff + mypy + bandit rodam antes de cada commit, espelhando o CI
 ├── Makefile                            # [DX] Atalhos: make train | make test | make serve | make data — avaliador deve subir tudo em < 2 min
-│
+│── logs/
 ├── data/                               # [Etapa 1 e 3] Diretório gerenciado pelo DVC — nenhum arquivo de dados é commitado no Git
 │   ├── raw/
 │   │   ├── ibov/                       # [Etapa 1] CSVs brutos baixados pelo yfinance via make_dataset.py

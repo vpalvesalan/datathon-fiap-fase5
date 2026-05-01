@@ -314,12 +314,10 @@ def run(force: bool = False) -> bool:
 
 if __name__ == "__main__":
     import argparse
-    import logging as _logging
 
-    _logging.basicConfig(
-        level=_logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+    from src.ibov_pipeline.logging_config import setup_logging
+
+    setup_logging("retrain")
 
     parser = argparse.ArgumentParser(description="Executa o ciclo de retraining champion-challenger.")
     parser.add_argument(

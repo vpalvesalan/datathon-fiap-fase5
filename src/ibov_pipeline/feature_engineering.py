@@ -243,8 +243,7 @@ def run() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, MinMaxScaler]
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+    from src.ibov_pipeline.logging_config import setup_logging
+
+    setup_logging("feature_engineering")
     run()

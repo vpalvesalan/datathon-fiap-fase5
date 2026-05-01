@@ -155,6 +155,29 @@ class Config(BaseModel):
 
 
 # =============================================================================
+# Raiz do projeto e resolução de paths
+# =============================================================================
+
+# config.py vive em <root>/src/ibov_pipeline/config.py → parents[2] = <root>
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
+
+
+def _resolve(p: str) -> str:
+    """Resolve um path relativo contra PROJECT_ROOT.
+
+    - Strings com esquema URL (ex: 'http://', 'sqlite://') são preservadas.
+    - Paths absolutos são preservados.
+    - Paths relativos viram absolutos ancorados em PROJECT_ROOT.
+
+    Garante que o pipeline funcione independente do cwd (notebook, CI, DVC).
+    """
+    if "://" in p:
+        return p
+    path = Path(p)
+    return str(path) if path.is_absolute() else str(PROJECT_ROOT / path)
+
+
+# =============================================================================
 # Carregamento
 # =============================================================================
 
@@ -186,14 +209,31 @@ def load_config(path: Path | str | None = None) -> Config:
         path: Caminho explícito para o YAML. Se None, busca automaticamente.
 
     Returns:
-        Config validada com Pydantic.
+        Config validada com Pydantic. Todos os paths são absolutos.
     """
     config_path = Path(path) if path else _find_config_path()
 
     with open(config_path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
-    return Config.model_validate(raw)
+    cfg = Config.model_validate(raw)
+
+    # Normaliza paths relativos contra PROJECT_ROOT. Sem isso, rodar de
+    # notebooks/ ou de CI cria diretórios fantasmas (notebooks/data/, etc).
+    for field in (
+        "raw_path",
+        "processed_x_path",
+        "processed_y_path",
+        "scaler_path",
+        "holdout_x_path",
+        "holdout_y_path",
+    ):
+        setattr(cfg.data, field, _resolve(getattr(cfg.data, field)))
+
+    cfg.tuner.directory = _resolve(cfg.tuner.directory)
+    cfg.mlflow.tracking_uri = _resolve(cfg.mlflow.tracking_uri)
+
+    return cfg
 
 
 # Instância global — importar com `from src.ibov_pipeline.config import cfg`

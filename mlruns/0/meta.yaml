@@ -1,7 +1,7 @@
 artifact_location: /Users/alan/Data Science Projects/datathon-techchallenge-fase-5/mlruns/0
-creation_time: 1777658416229
+creation_time: 1777664260204
 experiment_id: '0'
-last_update_time: 1777658416229
+last_update_time: 1777664260204
 lifecycle_stage: active
 name: Default
 trace_location: null

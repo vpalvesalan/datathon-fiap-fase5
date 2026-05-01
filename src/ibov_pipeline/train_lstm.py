@@ -89,7 +89,7 @@ def build_lstm(
 
 
 # =============================================================================
-# Lineage e governança (GAP 05 do guia do Datathon)
+# Lineage e governança
 # =============================================================================
 
 def _git_sha() -> str:
@@ -269,7 +269,7 @@ def _train_in_active_run(
 
 def _persist_model(model: Sequential) -> Path:
     """Salva o artefato Keras e loga no MLflow run ativo."""
-    model_path = Path("data/processed/ibov/model_lstm.keras")
+    model_path = Path(cfg.data.processed_x_path).parent / "model_lstm.keras"
     model_path.parent.mkdir(parents=True, exist_ok=True)
     model.save(str(model_path))
     mlflow.log_artifact(str(model_path), artifact_path="model")
@@ -470,10 +470,9 @@ def run() -> tuple[str, dict[str, float]]:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+    from src.ibov_pipeline.logging_config import setup_logging
+
+    setup_logging("train_lstm")
     run_id, metrics = run()
     print(f"\nRun ID: {run_id}")
     print(f"Métricas: {metrics}")

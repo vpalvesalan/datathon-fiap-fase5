@@ -161,10 +161,9 @@ def run(force_download: bool = False) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+    from src.ibov_pipeline.logging_config import setup_logging
+
+    setup_logging("make_dataset")
     df = run()
     print(f"\nRegistros coletados: {len(df)}")
     print(df.head())

@@ -212,12 +212,10 @@ def run(run_id: str | None = None) -> str:
 
 if __name__ == "__main__":
     import argparse
-    import logging as _logging
 
-    _logging.basicConfig(
-        level=_logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+    from src.ibov_pipeline.logging_config import setup_logging
+
+    setup_logging("register_model")
 
     parser = argparse.ArgumentParser(description="Registra o modelo LSTM no MLflow Registry.")
     parser.add_argument("--run-id", type=str, default=None, help="run_id do MLflow.")

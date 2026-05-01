@@ -1,0 +1,85 @@
+# =============================================================================
+# DVC Pipeline — Etapa 1 do Datathon Fase 05
+#
+# Implementa o GAP 08 do guia (versionamento de dados / reprodutibilidade).
+# Cada estágio declara dependências e saídas; `dvc repro` re-executa apenas
+# o que foi invalidado por mudança em código, configuração ou dados upstream.
+#
+# Inicialização (uma única vez no projeto):
+#     dvc init
+#     dvc repro              # roda todo o DAG
+#     dvc dag                # visualiza grafo de dependências
+#
+# O remote para os artefatos (data/, modelos) é configurado separadamente:
+#     dvc remote add -d storage <s3://bucket | gdrive://... | local-path>
+# =============================================================================
+
+stages:
+  # -------------------------------------------------------------------------
+  # 1. Coleta — baixa o IBOV via yfinance e valida com pandera
+  # -------------------------------------------------------------------------
+  make_dataset:
+    cmd: python -m src.ibov_pipeline.make_dataset
+    deps:
+      - src/ibov_pipeline/make_dataset.py
+      - src/ibov_pipeline/config.py
+      - src/ibov_pipeline/configs/model_config.yaml
+    outs:
+      - data/raw/ibov/ibov_close.csv
+
+  # -------------------------------------------------------------------------
+  # 2. Feature engineering — MinMaxScaler + janelas + split cronológico
+  # -------------------------------------------------------------------------
+  feature_engineering:
+    cmd: python -m src.ibov_pipeline.feature_engineering
+    deps:
+      - src/ibov_pipeline/feature_engineering.py
+      - src/ibov_pipeline/config.py
+      - src/ibov_pipeline/configs/model_config.yaml
+      - data/raw/ibov/ibov_close.csv
+    outs:
+      - data/processed/ibov/X_train.npy
+      - data/processed/ibov/X_test.npy
+      - data/processed/ibov/y_train.npy
+      - data/processed/ibov/y_test.npy
+      - data/processed/ibov/scaler.joblib
+      - data/holdout_test/X_holdout.npy
+      - data/holdout_test/y_holdout.npy
+
+  # -------------------------------------------------------------------------
+  # 3. Baseline Sklearn — piso de comparação para o LSTM
+  # MLflow é a fonte da verdade para tracking; DVC só rastreia código + deps.
+  # -------------------------------------------------------------------------
+  train_baseline:
+    cmd: python -m src.ibov_pipeline.train_baseline
+    deps:
+      - src/ibov_pipeline/train_baseline.py
+      - src/ibov_pipeline/train_lstm.py  # baseline reusa compute_metrics e tags
+      - src/ibov_pipeline/config.py
+      - src/ibov_pipeline/configs/model_config.yaml
+      - data/processed/ibov/X_train.npy
+      - data/processed/ibov/X_test.npy
+      - data/processed/ibov/y_train.npy
+      - data/processed/ibov/y_test.npy
+      - data/processed/ibov/scaler.joblib
+      - data/holdout_test/X_holdout.npy
+      - data/holdout_test/y_holdout.npy
+
+  # -------------------------------------------------------------------------
+  # 4. LSTM — grid search com nested runs no MLflow
+  # -------------------------------------------------------------------------
+  train_lstm:
+    cmd: python -m src.ibov_pipeline.train_lstm
+    deps:
+      - src/ibov_pipeline/train_lstm.py
+      - src/ibov_pipeline/config.py
+      - src/ibov_pipeline/configs/model_config.yaml
+      - data/processed/ibov/X_train.npy
+      - data/processed/ibov/X_test.npy
+      - data/processed/ibov/y_train.npy
+      - data/processed/ibov/y_test.npy
+      - data/processed/ibov/scaler.joblib
+      - data/holdout_test/X_holdout.npy
+      - data/holdout_test/y_holdout.npy
+    outs:
+      - data/processed/ibov/model_lstm.keras

@@ -16,6 +16,8 @@ raw_data/
 *.h5
 *.model
 *.pt
+/mlruns
+/logs
 
 # --- Notebooks e Ambiente ---
 # Checkpoints e outputs do Jupyter Notebook

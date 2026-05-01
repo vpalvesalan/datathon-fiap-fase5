@@ -1,0 +1,18 @@
+[run]
+source = src/ibov_pipeline
+omit =
+    # Módulos que dependem de MLflow Registry vivo / yfinance ao vivo —
+    # cobertura via testes de integração separados, fora do escopo unitário.
+    src/ibov_pipeline/register_model.py
+    src/ibov_pipeline/retrain.py
+    # Stub de pacote
+    src/ibov_pipeline/__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+show_missing = True
+skip_covered = False

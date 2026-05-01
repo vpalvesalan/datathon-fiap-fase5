@@ -1,0 +1,8 @@
+artifact_location: /Users/alan/Data Science Projects/datathon-techchallenge-fase-5/mlruns/890243717055198332
+creation_time: 1777658416243
+experiment_id: '890243717055198332'
+last_update_time: 1777658416243
+lifecycle_stage: active
+name: ibov-forecasting
+trace_location: null
+workspace: default

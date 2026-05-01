@@ -1,0 +1,14 @@
+artifact_uri: /Users/alan/Data Science Projects/datathon-techchallenge-fase-5/mlruns/890243717055198332/de9a499bdf2e430ca156d3d0164ee22e/artifacts
+end_time: 1777658427659
+entry_point_name: ''
+experiment_id: '890243717055198332'
+lifecycle_stage: active
+run_id: de9a499bdf2e430ca156d3d0164ee22e
+run_name: baseline-LinearRegression
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777658420420
+status: 3
+tags: []
+user_id: alan

@@ -1,0 +1,41 @@
+# --- Dados ---
+# Ignorar pastas de dados brutos ou processados
+data/
+raw_data/
+*.csv
+*.xlsx
+*.parquet
+*.feather
+*.zip
+*.tar.gz
+
+# --- Modelos Treinados ---
+# Arquivos de modelos pesados (Pickle, joblib, TensorFlow, PyTorch)
+*.pkl
+*.joblib
+*.h5
+*.model
+*.pt
+
+# --- Notebooks e Ambiente ---
+# Checkpoints e outputs do Jupyter Notebook
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Cache Python
+__pycache__/
+*.py[cod]
+
+# --- Ambiente Virtual e Credenciais ---
+# Ambientes virtuais e chaves de API/Senhas
+.env
+venv/
+.venv/
+env/
+.settings/
+
+# --- IDEs/Sistemas Operacionais ---
+.DS_Store
+.vscode/
+.idea/
+.claude

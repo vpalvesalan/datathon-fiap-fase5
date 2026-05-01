@@ -1,0 +1,19 @@
+Esse arquivo é para manter o histórico do fluxo de execução (posteriomente talvez transformar em um .bat)
+
+# 1) cfdntdntrhabilitar tuner.enabled: true em src/ibov_pipeline/model_config.yaml
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Registra o ambiente virtual como um Kernel do Jupyter
+python -m ipykernel install --user --name ibov_pipeline_env --display-name "Python (IBOV Pipeline)"
+
+python3 -m src.ibov_pipeline.make_dataset  
+jupyter nbconvert --to notebook --execute --ExecutePreprocessor.kernel_name="ibov_pipeline_env" --inplace notebooks/01_eda_ibov.ipynb
+python -m src.ibov_pipeline.feature_engineering
+python -m src.ibov_pipeline.train_baseline
+python -m src.ibov_pipeline.train_lstm        # gera busca + nested runs
+jupyter nbconvert --to notebook --execute --ExecutePreprocessor.kernel_name="ibov_pipeline_env" --inplace notebooks/02_lstm_training_report.ipynb
+
+
+python -m src.ibov_pipeline.register_model    # promove champion

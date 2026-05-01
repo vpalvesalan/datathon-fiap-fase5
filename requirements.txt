@@ -1,0 +1,13 @@
+pydantic
+PyYAML
+pandera
+joblib
+mlflow
+numpy
+pandas
+scikit-learn
+tensorflow
+yfinance
+matplotlib
+statsmodels
+ipykernel

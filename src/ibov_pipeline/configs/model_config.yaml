@@ -1,0 +1,89 @@
+# =============================================================================
+# model_config.yaml
+# Configuração centralizada do pipeline IBOV.
+# Todos os hiperparâmetros vivem aqui
+# Valores padrão derivados do Run 2 do KerasTuner (melhor experimento).
+# =============================================================================
+
+# --- Coleta de Dados (make_dataset.py) ---
+data:
+  symbol: "^BVSP"                # Ticker do IBOV no Yahoo Finance
+  start_date: "2019-01-01"       # Início da série histórica
+  end_date: "2026-04-30"                 # null = usa a data de hoje automaticamente
+  raw_path: "data/raw/ibov/ibov_close.csv"          # Destino do CSV bruto
+  processed_x_path: "data/processed/ibov/X.npy"    # Tensor de entrada LSTM
+  processed_y_path: "data/processed/ibov/y.npy"    # Tensor de alvo LSTM
+  scaler_path: "data/processed/ibov/scaler.joblib"  # Scaler persistido
+  holdout_x_path: "data/holdout_test/X_holdout.npy" # Holdout imutável
+  holdout_y_path: "data/holdout_test/y_holdout.npy"
+
+# --- Feature Engineering (feature_engineering.py) ---
+features:
+  time_step: 60          # Janela de 60 pregões para prever o dia seguinte
+  feature_range: [0, 1]  # Intervalo do MinMaxScaler
+
+# --- Divisão Treino/Teste (train_lstm.py) ---
+split:
+  train_ratio: 0.80      # 80% cronológico para treino, 20% para teste
+  holdout_ratio: 0.10    # 10% final separado como holdout imutável
+  validation_split: 0.20 # 20% do treino usado como validação interna
+
+# --- Baseline Scikit-Learn (train_baseline.py) ---
+baseline:
+  models:
+    - name: "LinearRegression"
+      class: "sklearn.linear_model.LinearRegression"
+      params: {}
+    - name: "Ridge"
+      class: "sklearn.linear_model.Ridge"
+      params:
+        alpha: 1.0
+    - name: "RandomForest"
+      class: "sklearn.ensemble.RandomForestRegressor"
+      params:
+        n_estimators: 100
+        random_state: 42
+
+# --- Arquitetura LSTM (train_lstm.py) ---
+lstm:
+  # Hiperparâmetros fixos do melhor trial (Run 2 do KerasTuner)
+  units_1: 64             # Neurônios da camada LSTM 1
+  units_2: 64             # Neurônios da camada LSTM 2
+  dropout_1: 0.2          # Dropout após camada 1
+  dropout_2: 0.2          # Dropout após camada 2
+  learning_rate: 0.01     # Learning rate Adam (melhor encontrado)
+  loss: "mean_squared_error"
+  epochs: 100             # Máximo de épocas (EarlyStopping interrompe antes)
+  batch_size: 32
+  patience: 10            # EarlyStopping: parar se val_loss não melhorar em N épocas
+
+# --- KerasTuner (train_lstm.py) ---
+tuner:
+  enabled: false           # true = roda busca; false = usa hiperparâmetros fixos acima
+  max_trials: 10
+  executions_per_trial: 1
+  directory: "data/tuning_dir"
+  project_name: "ibov_lstm_tuning"
+  units_min: 32
+  units_max: 128
+  units_step: 32
+  dropout_min: 0.1
+  dropout_max: 0.5
+  dropout_step: 0.1
+  learning_rates: [0.01, 0.001, 0.0001]
+
+# --- MLflow (train_baseline.py, train_lstm.py) ---
+mlflow:
+  experiment_name: "ibov-forecasting"
+  tracking_uri: "mlruns"   # Pode ser substituído por URL remota via .env
+
+# --- Model Registry (register_model.py) ---
+registry:
+  model_name: "ibov-lstm-predictor"
+  risk_level: "medium"     # low | medium | high | critical
+  owner: "grupo-xx"
+
+# --- Champion-Challenger (retrain.py) ---
+retrain:
+  promotion_delta_mape: 0.005   # Promover challenger se melhora ≥ 0.5% no MAPE
+  retrain_trigger_psi: 0.20     # PSI acima desse threshold dispara retraining

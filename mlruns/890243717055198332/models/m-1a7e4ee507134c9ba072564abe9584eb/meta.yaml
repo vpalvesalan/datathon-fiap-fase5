@@ -1,0 +1,10 @@
+artifact_location: /Users/alan/Data Science Projects/datathon-techchallenge-fase-5/mlruns/890243717055198332/models/m-1a7e4ee507134c9ba072564abe9584eb/artifacts
+creation_timestamp: 1777658441189
+experiment_id: '890243717055198332'
+last_updated_timestamp: 1777658447500
+model_id: m-1a7e4ee507134c9ba072564abe9584eb
+model_type: null
+name: model
+source_run_id: 0735b01097da4da8a9d2a98ae54857c8
+status: 2
+status_message: null

@@ -1,0 +1,14 @@
+artifact_uri: /Users/alan/Data Science Projects/datathon-techchallenge-fase-5/mlruns/890243717055198332/c5dff289fff24c9a8953a7fbc1110677/artifacts
+end_time: 1777658431935
+entry_point_name: ''
+experiment_id: '890243717055198332'
+lifecycle_stage: active
+run_id: c5dff289fff24c9a8953a7fbc1110677
+run_name: baseline-Ridge
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777658427662
+status: 3
+tags: []
+user_id: alan

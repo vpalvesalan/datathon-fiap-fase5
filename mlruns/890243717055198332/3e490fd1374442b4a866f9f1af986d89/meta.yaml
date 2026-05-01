@@ -1,0 +1,14 @@
+artifact_uri: /Users/alan/Data Science Projects/datathon-techchallenge-fase-5/mlruns/890243717055198332/3e490fd1374442b4a866f9f1af986d89/artifacts
+end_time: 1777658663142
+entry_point_name: ''
+experiment_id: '890243717055198332'
+lifecycle_stage: active
+run_id: 3e490fd1374442b4a866f9f1af986d89
+run_name: lstm-train
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777658564579
+status: 3
+tags: []
+user_id: alan

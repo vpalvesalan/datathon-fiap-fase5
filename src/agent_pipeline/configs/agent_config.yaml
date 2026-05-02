@@ -1,0 +1,52 @@
+# =============================================================================
+# agent_config.yaml — Configuração centralizada do Domínio 2 (Agente LLM + RAG)
+# Vive separado do model_config.yaml para não acoplar os dois domínios.
+# =============================================================================
+
+# --- LLM (Groq) ---
+llm:
+  provider: "groq"
+  model_name: "llama-3.3-70b-versatile"
+  temperature: 0.0
+  max_tokens: 1024
+  max_iterations: 10            # Limite de passos do ReAct loop
+
+# --- Embeddings (HuggingFace local — modelo multilingual ideal para PT-BR) ---
+embeddings:
+  model_name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+  chunk_size: 1000
+  chunk_overlap: 200
+
+# --- Vector Store (ChromaDB persistente) ---
+vector_store:
+  persist_directory: "data/processed/agent_db"
+  collection_name: "ibov_macro_docs"
+
+# --- Pipeline RAG ---
+rag:
+  retrieval_k: 4                # Top-K chunks retornados ao agente
+
+# --- Guardrails ---
+guardrails:
+  max_input_length: 4096
+  language: "pt"
+  pii_entities:                 # Entidades Presidio a remover do output
+    - "PERSON"
+    - "EMAIL_ADDRESS"
+    - "PHONE_NUMBER"
+    - "BR_CPF"
+
+# --- Golden Set (avaliação RAGAS) ---
+golden_set:
+  path: "data/golden_set/perguntas.json"
+
+# --- Documentos brutos (PDFs) ---
+agent_docs:
+  raw_path: "data/raw/agent_docs"
+
+# --- Avaliação ---
+evaluation:
+  ragas_output: "evaluation/results/ragas_metrics.json"
+  judge_output: "evaluation/results/llm_judge.json"
+  ab_test_output: "evaluation/results/ab_test_prompts.json"
+  benchmark_output: "evaluation/results/benchmark_llm.json"

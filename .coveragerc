@@ -1,12 +1,22 @@
 [run]
-source = src/ibov_pipeline
+source =
+    src/ibov_pipeline
+    src/security
 omit =
     # Módulos que dependem de MLflow Registry vivo / yfinance ao vivo —
     # cobertura via testes de integração separados, fora do escopo unitário.
     src/ibov_pipeline/register_model.py
     src/ibov_pipeline/retrain.py
-    # Stub de pacote
+    src/ibov_pipeline/predict.py        # exige champion no Registry
+    # Stubs de pacote
     src/ibov_pipeline/__init__.py
+    src/security/__init__.py
+    # Domínio 2 / serving / monitoring / evaluation — cobertura via
+    # testes de integração com Groq, ChromaDB, Langfuse vivos.
+    src/agent_pipeline/*
+    src/serving/*
+    src/monitoring/*
+    evaluation/*
 
 [report]
 exclude_lines =

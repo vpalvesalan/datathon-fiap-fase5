@@ -1,0 +1,42 @@
+# =============================================================================
+# Dockerfile do serviço — multi-stage build para imagem mínima.
+# Build:  docker build -f src/serving/Dockerfile -t copiloto-ibov:latest .
+# Run:    docker run -p 8000:8000 --env-file .env copiloto-ibov:latest
+# =============================================================================
+
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# -----------------------------------------------------------------------------
+
+FROM python:3.12-slim AS runtime
+
+WORKDIR /app
+
+# Copia deps compiladas do builder (sem build tools no runtime)
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Código + configs
+COPY src/ /app/src/
+COPY data/processed/ibov/ /app/data/processed/ibov/
+COPY data/processed/agent_db/ /app/data/processed/agent_db/
+
+# Usuário não-root
+RUN useradd -m -u 1000 apiuser && chown -R apiuser /app
+USER apiuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
+
+CMD ["uvicorn", "src.serving.app:app", "--host", "0.0.0.0", "--port", "8000"]

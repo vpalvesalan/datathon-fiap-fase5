@@ -1,0 +1,63 @@
+name: CI — Datathon Fase 05
+
+# Pipeline: lint → type-check → security → tests com gate de coverage.
+# Roda em PRs e push em main/develop. Caching de pip via setup-python.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'evaluation/**'
+      - 'requirements.txt'
+      - 'pytest.ini'
+      - '.coveragerc'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  quality:
+    name: Lint + Type + Security + Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check src/ tests/ evaluation/ || true   # warnings, não falha por enquanto
+        continue-on-error: true
+
+      - name: Type check (mypy)
+        run: mypy src/ --ignore-missing-imports --no-strict-optional || true
+        continue-on-error: true
+
+      - name: Security scan (bandit)
+        run: bandit -r src/ -ll -ii --exclude src/serving/Dockerfile
+
+      - name: Run tests with coverage gate
+        run: pytest -m "not integration"
+
+      - name: Upload coverage XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml

@@ -55,8 +55,8 @@ def ingest_pdfs(force_rebuild: bool = False) -> int:
     """
     from langchain_chroma import Chroma
     from langchain_community.document_loaders import PyPDFLoader
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
-
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    
     persist_dir = Path(agent_cfg.vector_store.persist_directory)
     raw_dir = Path(agent_cfg.agent_docs.raw_path)
 

@@ -41,3 +41,6 @@ env/
 .vscode/
 .idea/
 .claude
+
+# --- Outros ---
+temp.txt

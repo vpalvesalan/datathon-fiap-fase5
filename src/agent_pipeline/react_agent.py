@@ -7,15 +7,19 @@ O agente recebe perguntas em linguagem natural sobre o IBOV e decide qual
 tool acionar (forecast, RAG, calculator, market_context). Toda a sequência
 Thought → Action → Observation é registrada via Langfuse para auditoria.
 """
+
 from __future__ import annotations
 
-import logging
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # Apenas Erros (nível 2), ocultando Infos (0) e Warnings (1)
+
+import logging
+from dotenv import load_dotenv
 
 from src.agent_pipeline.config import agent_cfg
 
 logger = logging.getLogger(__name__)
-
+load_dotenv()
 
 SYSTEM_PROMPT = """Você é o **Copiloto Analítico do IBOV** — um assistente \
 que apoia gestores e analistas a entender o mercado brasileiro cruzando \
@@ -92,8 +96,8 @@ def create_copiloto_agent(tools: list | None = None):
         ValueError: Se houver < 3 tools (regra do datathon).
         RuntimeError: Se GROQ_API_KEY não estiver definida.
     """
-    from langchain.agents import AgentExecutor, create_react_agent
-    from langchain.prompts import PromptTemplate
+    from langchain_classic.agents import AgentExecutor, create_react_agent
+    from langchain_classic.prompts import PromptTemplate
 
     from src.agent_pipeline.tools import get_default_tools
 

@@ -1,7 +1,17 @@
 # === 0. Setup do ambiente (uma vez) ===
 python3 -m venv .venv
 source .venv/bin/activate
+
 pip install -r requirements.txt
+
+python -m spacy download pt_core_news_sm   # modelo PT do Presidio
+
+cp .env.example .env
+# edite .env e preencha:
+#   GROQ_API_KEY=...        (https://console.groq.com/keys — gratuito)
+#   LANGFUSE_PUBLIC_KEY=... (https://cloud.langfuse.com — gratuito)
+#   LANGFUSE_SECRET_KEY=...
+
 python -m ipykernel install --user --name ibov_pipeline_env --display-name "Python (IBOV Pipeline)"
 
 # === 1. Quality gate ANTES de qualquer treino ===
@@ -33,5 +43,8 @@ jupyter nbconvert --to notebook --execute \
 # === 6. Promoção ao Model Registry ===
 python -m src.ibov_pipeline.register_model
 
-# === 7. Inspeção dos logs persistidos ===
-ls -lt logs/ | head        # arquivos por execução com timestamp
+# (b) Ingestão RAG (Domínio 2):
+python -m src.agent_pipeline.rag_retriever       # PDFs → ChromaDB
+
+# (c) Smoke test do agente (CLI):
+python -m src.agent_pipeline.react_agent "Qual a previsão do IBOV para amanhã?"

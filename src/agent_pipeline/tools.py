@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 def _ibov_forecast_tool():
-    from langchain.tools import Tool
+    from langchain_core.tools import Tool
 
     def _run(_: str = "") -> str:
         from src.ibov_pipeline.predict import predict_next_day
@@ -55,7 +55,7 @@ def _ibov_forecast_tool():
 # =============================================================================
 
 def _rag_tool():
-    from langchain.tools import Tool
+    from langchain_core.tools import Tool
 
     def _run(query: str) -> str:
         from src.agent_pipeline.rag_retriever import get_retriever
@@ -94,7 +94,7 @@ _SAFE_EXPR = re.compile(r"^[\d\s+\-*/().]+$")
 
 
 def _calculator_tool():
-    from langchain.tools import Tool
+    from langchain_core.tools import Tool
 
     def _run(expression: str) -> str:
         if not _SAFE_EXPR.match(expression):
@@ -124,7 +124,7 @@ def _calculator_tool():
 # =============================================================================
 
 def _market_context_tool():
-    from langchain.tools import Tool
+    from langchain_core.tools import Tool
 
     def _run(_: str = "") -> str:
         import yfinance as yf

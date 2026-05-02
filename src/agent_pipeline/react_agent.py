@@ -38,6 +38,10 @@ REGRAS FUNDAMENTAIS:
    LSTM univariado é ~50%. O modelo é um **filtro de viés**, não uma \
    bola de cristal.
 6. SEMPRE cite a fonte quando usar `macro_rag`.
+7. "Se você usar a ferramenta macro_rag e a informação necessária \
+    não estiver no texto retornado, NÃO tente usar a ferramenta novamente.\
+    Pare imediatamente e responda: 'Desculpe, não encontrei essa informação \
+    nos documentos disponíveis'."
 """
 
 
@@ -119,7 +123,7 @@ def create_copiloto_agent(tools: list | None = None):
         verbose=True,
         max_iterations=agent_cfg.llm.max_iterations,
         handle_parsing_errors=True,
-        return_intermediate_steps=True,
+        return_intermediate_steps=True
     )
 
 

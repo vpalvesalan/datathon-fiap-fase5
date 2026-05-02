@@ -10,7 +10,7 @@
 | **Versão** | 0.1.0 |
 | **Tipo** | Regressão (séries temporais univariada) |
 | **Framework** | TensorFlow / Keras |
-| **Owner** | grupo-XX (Datathon Fase 05) |
+| **Owner** | Alan Alves |
 | **Risk Level** | medium |
 | **Registry** | MLflow Model Registry, stage `Staging` → `Production` após approval |
 

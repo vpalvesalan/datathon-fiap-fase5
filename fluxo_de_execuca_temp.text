@@ -48,3 +48,9 @@ python -m src.agent_pipeline.rag_retriever       # PDFs → ChromaDB
 
 # (c) Smoke test do agente (CLI):
 python -m src.agent_pipeline.react_agent "Qual a previsão do IBOV para amanhã?"
+
+# (e) Avaliação completa (depois do golden_set ter ≥ 20 entradas):
+python -m evaluation.ragas_eval         # 4 métricas RAGAS
+python -m evaluation.llm_judge          # 3 critérios de qualidade
+python -m evaluation.ab_test_prompts    # ≥ 3 system prompts
+python -m evaluation.benchmark_llm      # ≥ 3 configurações LLM

@@ -27,14 +27,30 @@ def _ibov_forecast_tool():
         from src.ibov_pipeline.predict import predict_next_day
         try:
             r = predict_next_day()
-            return (
-                f"Previsão LSTM para o próximo pregão do IBOV: "
+
+            parts: list[str] = []
+            if r.get("warning"):
+                parts.append(f"⚠️ AVISO: {r['warning']}")
+
+            if r.get("predicted_for_date"):
+                parts.append(
+                    f"Previsão LSTM para {r['predicted_for_date']} "
+                    f"(baseada no fechamento de {r['as_of_date']}, "
+                    f"fonte: {r['data_source']}):"
+                )
+            else:
+                parts.append("Previsão LSTM para o próximo pregão do IBOV:")
+
+            parts.append(
                 f"{r['predicted_close']:,.2f} pontos "
                 f"(último fechamento: {r['last_close']:,.2f}, "
-                f"variação prevista: {r['delta_pct']:+.2f}%). "
-                f"OBS: a acurácia direcional histórica do modelo univariado "
-                f"é ~50% — use como filtro de viés, não como sinal autônomo."
+                f"variação prevista: {r['delta_pct']:+.2f}%)."
             )
+            parts.append(
+                "OBS: a acurácia direcional histórica do modelo univariado "
+                "é ~50% — use como filtro de viés, não como sinal autônomo."
+            )
+            return " ".join(parts)
         except Exception as exc:  # noqa: BLE001
             logger.exception("ibov_forecast_tool falhou")
             return f"Erro ao consultar a previsão LSTM: {exc}"

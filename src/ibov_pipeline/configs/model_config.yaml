@@ -81,7 +81,7 @@ mlflow:
 registry:
   model_name: "ibov-lstm-predictor"
   risk_level: "medium"     # low | medium | high | critical
-  owner: "grupo-xx"
+  owner: "Alan Alves"
 
 # --- Champion-Challenger (retrain.py) ---
 retrain:

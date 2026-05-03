@@ -8,8 +8,12 @@ Endpoints:
 Fluxo de /agent/query:
     user_input → InputGuardrail → agente (LLM + tools) → OutputGuardrail → resposta
 
-Tracing: se LANGFUSE_PUBLIC_KEY estiver no env, todos os passos do agente
-são automaticamente enviados ao Langfuse via callback handler.
+Tracing:
+- **MLflow** (primário) — `mlflow.langchain.autolog()` instrumenta tudo
+  automaticamente no startup. Traces ficam visíveis no MLflow UI sob o
+  experiment `agent_cfg.observability.mlflow_experiment_name`.
+- **Langfuse** (fallback opcional) — se LANGFUSE_PUBLIC_KEY estiver no env,
+  callbacks são adicionados em paralelo. Sem env vars, só o MLflow roda.
 
 Uso local:
     uvicorn src.serving.app:app --reload --port 8000
@@ -17,6 +21,9 @@ Uso local:
 from __future__ import annotations
 
 import logging
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 
@@ -74,20 +81,17 @@ def _get_agent_executor():
 
 
 def _get_langfuse_callbacks() -> list:
-    """Retorna callbacks Langfuse se as credenciais estiverem no env."""
+    """Retorna callbacks Langfuse SE as credenciais estiverem no env.
+
+    O tracing primário é via MLflow (autolog em startup). Langfuse é uma
+    camada adicional opcional — útil se a equipe quiser dashboards específicos
+    de LLM. Roda em paralelo ao MLflow, sem conflito.
+    """
     global _langfuse_handler
-    import os
-
-    if not (os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY")):
-        return []
-
     if _langfuse_handler is None:
-        try:
-            from langfuse.callback import CallbackHandler
-            _langfuse_handler = CallbackHandler()
-            logger.info("Langfuse tracing habilitado.")
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Langfuse indisponível: %s", exc)
+        from src.monitoring.telemetry import get_langfuse_callback
+        _langfuse_handler = get_langfuse_callback()
+        if _langfuse_handler is None:
             return []
     return [_langfuse_handler]
 
@@ -97,7 +101,12 @@ def _get_langfuse_callbacks() -> list:
 @app.on_event("startup")
 def _on_startup():
     from src.ibov_pipeline.logging_config import setup_logging
+    from src.monitoring.telemetry import setup_mlflow_tracing
+
     setup_logging("api_serving")
+    # MLflow Tracing como backend primário (auto-instrumenta LangChain).
+    # Langfuse, se configurado, ativa em paralelo via _get_langfuse_callbacks.
+    setup_mlflow_tracing()
     logger.info("API inicializada.")
 
 

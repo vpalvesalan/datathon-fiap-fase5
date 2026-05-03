@@ -38,7 +38,7 @@ FastAPI (src/serving/app.py)
 | Orquestração | LangChain ReAct | `react_agent.py` |
 | Serving | FastAPI + uvicorn | `src/serving/` |
 | Guardrails | Regex + Presidio | `src/security/guardrails.py` |
-| Telemetria | Langfuse + Prometheus | `src/monitoring/telemetry.py` |
+| Telemetria | MLflow Tracing (primário) + Langfuse (opcional) + Prometheus | `src/monitoring/telemetry.py` |
 | Drift | PSI manual + Evidently opcional | `src/monitoring/drift_detection.py` |
 
 ## 4. Decisões arquiteturais
@@ -81,6 +81,35 @@ línguas com custo computacional similar.
 Redundância para o Demo Day. Se uma tool dependente de rede falhar ao vivo
 (ex: yfinance fora do ar), as outras 3 mantêm a demo funcional.
 
+### Por que MLflow Tracing como backend primário (e Langfuse opcional)?
+O guia menciona Langfuse/TruLens como exemplos de telemetria LLM. Adotamos
+**MLflow Tracing** como primário e Langfuse como camada opcional pelos
+seguintes motivos:
+
+1. **Single pane of glass** — MLflow já gerencia experimentos, modelos e
+   registry do LSTM. Reusar para tracing do agente unifica todo o ciclo de
+   vida MLOps em uma UI só.
+2. **Zero infra adicional** — `mlflow.langchain.autolog()` instrumenta
+   tudo automaticamente. Sem conta nova, sem env vars adicionais, sem
+   dependência de rede para cloud externo.
+3. **LGPD / privacidade** — traces ficam no `mlruns/` local. Nenhum dado
+   da query do usuário sai do nosso ambiente, ao contrário do Langfuse
+   cloud (que exigiria DPA com terceiro).
+4. **Sem rate limit** — Langfuse free tier limita ingestão; MLflow local
+   não tem limite.
+
+Langfuse permanece **disponível como fallback opcional**: se o time
+quiser usar dashboards específicos de LLM (custo por modelo, A/B de
+prompts), basta preencher `LANGFUSE_PUBLIC_KEY` no `.env` que ambos os
+backends rodam em paralelo, sem conflito. Decisão reversível por
+configuração.
+
+**Observações**:
+* **Prompt:**
+   * O agente estava tentando usar a ferramenta `macro_rag` novamente (em um loop infinito) quando não encontrava a informação requerida. Instrução explicita foi inclusa no prompt para evitar o consumo de tokens desnecessários: 
+      > "Se você usar a ferramenta macro_rag e a informação necessária não estiver no texto retornado, NÃO tente usar a ferramenta novamente. Pare imediatamente e responda: 'Desculpe, não encontrei essa informação nos documentos disponíveis'."
+   * Nomes de ferramentas no system prompt foram migrados de `backticks` para texto puro após observar que o LLM replicava o markup ao emitir Action:, causando falha no parser do LangChain. A versão final inclui regra explícita instruindo o modelo a não envolver tool names em qualquer caractere adicional.
+
 ## 5. Riscos e mitigações
 
 | Risco | Mitigação |
@@ -107,7 +136,14 @@ Resultados em `evaluation/results/*.json`.
 
 ## 7. Observabilidade
 
-- **Langfuse** captura trace de cada query: prompt, tool calls, tokens, latência.
+- **MLflow Tracing** (primário) — `mlflow.langchain.autolog()` é chamado
+  no startup do FastAPI e instrumenta automaticamente todas as chamadas
+  LangChain (LLM, tools, retriever). Traces hierárquicos visíveis no
+  MLflow UI → experiment `agent-tracing`, com inputs, outputs, latência
+  e contagem de tokens por span.
+- **Langfuse** (fallback opcional) — ativa em paralelo se as env vars
+  `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` estiverem configuradas. Útil
+  para dashboards específicos de LLM (custo por modelo, scores agregados).
 - **Prometheus** expõe contadores operacionais (queries, latência, erros).
 - **Logs persistentes** em `logs/<run>_<timestamp>.log` para auditoria forense.
 

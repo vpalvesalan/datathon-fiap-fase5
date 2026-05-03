@@ -1,6 +1,6 @@
 name: CI — Datathon Fase 05
 
-# Pipeline: lint → type-check → security → tests com gate de coverage.
+# Pipeline: lint → type-check → security → tests → build → deploy
 # Roda em PRs e push em main/develop. Caching de pip via setup-python.
 
 on:
@@ -42,8 +42,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Lint (ruff)
-        run: ruff check src/ tests/ evaluation/ || true   # warnings, não falha por enquanto
-        continue-on-error: true
+        run: ruff check src/ tests/ evaluation/
+        continue-on-error: false
 
       - name: Type check (mypy)
         run: mypy src/ --ignore-missing-imports --no-strict-optional || true
@@ -61,3 +61,48 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+
+  build:
+    name: Build Docker Image (Validation)
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test Docker Build
+        # Constrói a imagem para garantir que o Dockerfile compila sem erros
+        run: docker build -f src/serving/Dockerfile -t copiloto-ibov:latest .
+
+  deploy_staging:
+    name: Deploy to Hugging Face Spaces (Staging)
+    needs: build
+    if: github.ref == 'refs/heads/main' 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessário para o Git pegar o histórico e fazer o push
+      
+      - name: Push to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # 1. O Hugging Face EXIGE que o Dockerfile esteja na raiz. 
+          # Copiamos o seu Dockerfile para a raiz apenas no momento do deploy.
+          cp src/serving/Dockerfile ./Dockerfile
+          
+          # 2. Configura o usuário robô do Git
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          
+          # 3. Faz o commit da movimentação do Dockerfile
+          git add Dockerfile
+          git commit -m "Auto-move Dockerfile to root for HF Spaces deployment" || echo "Sem mudanças para commitar"
+          
+          # 4. Configura o endereço do Hugging Face (Substitua pelos seus dados reais abaixo!)
+          git remote add huggingface https://USER:${HF_TOKEN}@huggingface.co/spaces/SEU_USUARIO_HF/NOME_DO_SEU_SPACE
+          
+          # 5. Força o envio do código para lá
+          git push --force huggingface main:main

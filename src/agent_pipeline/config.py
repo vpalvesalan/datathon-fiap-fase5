@@ -22,12 +22,30 @@ from src.ibov_pipeline.config import PROJECT_ROOT, _resolve
 # Modelos por seção do YAML
 # =============================================================================
 
+class RateLimitConfig(BaseModel):
+    """Configuração de rate limit do provedor LLM.
+
+    Usado por scripts de evaluation para pausar entre iterações e respeitar
+    a janela de tokens/min do provedor (especialmente Groq free tier).
+    """
+    tokens_per_minute: int = Field(12000, gt=0)
+    estimated_tokens_per_call: int = Field(5000, gt=0)
+    safety_margin: float = Field(1.5, gt=0)
+
+
 class LLMConfig(BaseModel):
     provider: str = "groq"
     model_name: str = "llama-3.3-70b-versatile"
     temperature: float = Field(0.0, ge=0.0, le=2.0)
     max_tokens: int = Field(1024, gt=0)
     max_iterations: int = Field(10, gt=0)
+    rate_limit: RateLimitConfig = RateLimitConfig()
+
+
+class ObservabilityConfig(BaseModel):
+    """Tracing do agente — MLflow primário, Langfuse opcional."""
+    mlflow_experiment_name: str = "agent-tracing"
+    enable_mlflow_tracing: bool = True
 
 
 class EmbeddingsConfig(BaseModel):
@@ -72,6 +90,7 @@ class EvaluationConfig(BaseModel):
 
 class AgentConfig(BaseModel):
     llm: LLMConfig = LLMConfig()
+    observability: ObservabilityConfig = ObservabilityConfig()
     embeddings: EmbeddingsConfig = EmbeddingsConfig()
     vector_store: VectorStoreConfig = VectorStoreConfig()
     rag: RAGConfig = RAGConfig()

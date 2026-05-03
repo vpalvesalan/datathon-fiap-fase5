@@ -49,6 +49,29 @@ porque: (a) free tier generoso, (b) latência competitiva (10× mais rápida que
 GPU local em modelos 70B), (c) zero infra de GPU, (d) satisfaz o requisito
 "LLM via API". A quantização é feita pela própria Groq — externalizada.
 
+### Por que Llama 3.3 70B e não outro modelo?
+
+Testamos Llama 4 Scout 17B; falhou em ReAct por loop; voltamos ao Llama 3.3 70B.
+
+### Iteração empírica do OutputGuardrail (allow list)
+
+O `pt_core_news_sm` (modelo NER do Presidio em PT) gerou dois tipos de
+falsos positivos em testes manuais:
+
+1. **Termos financeiros** (Brent, S&P, Wall Street) — aparecem em respostas
+   legítimas com qualquer LLM. Adicionados ao `allow_list` como mitigação
+   contínua.
+
+2. **Termos do framework LangChain** (Agent, AgentExecutor, Action) — só
+   surgem em mensagens fallback do orquestrador, ex: *"Agent stopped due
+   to iteration limit"* quando o LLM falha em ReAct. Observamos isso em
+   um experimento com Llama 4 Scout 17B (loop por baixa capacidade); com
+   Llama 3.3 70B não ocorre, mas mantemos no `allow_list` como defesa em
+   camada para outras falhas transitórias (rate limit, timeout).
+
+Lista em `src/security/guardrails.py::FINANCIAL_ALLOW_LIST`. Ajuste
+empírico, não cego — documentado e fácil de estender.
+
 ### Por que multilingual MiniLM em vez do MiniLM-L6?
 Os documentos de RAG (Focus, Copom) são em PT-BR. O MiniLM-L6 é treinado em
 inglês — embeddings degradam em PT. O multilingual preserva semântica entre
@@ -92,7 +115,7 @@ Resultados em `evaluation/results/*.json`.
 
 1. O LSTM tem acurácia direcional ~50% — é filtro de viés, não sinal autônomo.
 2. RAG depende da qualidade/atualidade dos PDFs em `data/raw/agent_docs/`.
-3. Groq tem rate limit no free tier (alto, mas existe).
+3. Groq tem rate limit no free tier (e.g. 12k tokens / min).
 4. Sem cache de respostas — cada query roda o pipeline completo.
 
 ## 9. Conformidade LGPD

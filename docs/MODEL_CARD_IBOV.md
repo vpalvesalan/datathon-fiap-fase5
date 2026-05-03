@@ -34,24 +34,30 @@ supervisão humana, decisão de hedging em tempo real.
 
 ## Métricas de Avaliação
 
-Médias do champion atual (preencher após `train_lstm.run()`):
+Médias do champion atual (preenchido após `train_lstm.run()`):
 
 | Métrica | Test set | Holdout imutável |
 |---|---|---|
-| MAE (pontos) | _preencher_ | _preencher_ |
-| RMSE (pontos) | _preencher_ | _preencher_ |
-| MAPE | _preencher_ | _preencher_ |
-| Acurácia direcional | _preencher_ | _preencher_ |
+| MAE (pontos) | 1185.27 | 2423.99 |
+| RMSE (pontos) | 1512.60 | 3124.80 |
+| MAPE | 0.0091 | 0.014 |
+| Acurácia direcional | 0.52 | 0.45 |
 
 > Os números acima são gerados automaticamente — ver
-> `notebooks/02_lstm_training_report.ipynb`.
+> `notebooks/02_lstm_training_report.ipynb`.  
+ou
+> `mlflow ui`.
+
+**Observação sobre os dataset para cálculo de métricas:** métricas no test set são as monitoradas durante a busca de hiperparâmetros (mlflow.search_runs com metrics.mape ASC). Métricas no holdout são calculadas após o treino sobre o split imutável (10% final), nunca usadas para selecionar modelo — protegem contra overfitting ao test split.
+
+**Comparaçnao entre test set e holdout set**: o modelo apresenta degradação significativa no holdout vs. test (MAPE 1,44% vs. 0,91%). Isso reflete a presença de mudança de regime na série recente — comportamento típico do IBOV em períodos de incerteza macro. Reforça o uso do PSI para disparar retreinamento periódico.
 
 ## Limitações conhecidas
 
 1. **Acurácia direcional ≈ 50%**. O modelo univariado, ao otimizar MSE,
    converge para "amanhã ≈ hoje" (estratégia ótima em mercado eficiente).
    Bom para magnitude (RMSE baixo), ruim para direção.
-2. **Sem features exógenas** no v0 (sem Dólar, S&P 500, Selic).
+2. **Sem features exógenas** no v1 (sem Dólar, S&P 500, Selic).
 3. **Sem regime switching** — não distingue mercado lateral vs. tendencial.
 4. **Sensível a quebras estruturais** (COVID, eleições) — drift detectado
    via PSI em `src/monitoring/drift_detection.py`, threshold 0.20 dispara
@@ -67,5 +73,5 @@ Médias do champion atual (preencher após `train_lstm.run()`):
 
 - **Re-treino**: `python -m src.ibov_pipeline.retrain` (champion-challenger,
   promove só se `delta_mape ≥ 0.5%` no holdout).
-- **Monitoramento**: PSI em features e predições, dispara alerta em `> 0.20`.
+- **Monitoramento**: PSI (Population Stability Index) em features e predições, dispara alerta em `> 0.20`.
 - **Versionamento**: tags MLflow (`git_sha`, `dataset_hash`, `model_version`).

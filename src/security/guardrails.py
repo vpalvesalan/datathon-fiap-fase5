@@ -19,6 +19,14 @@ from src.agent_pipeline.config import agent_cfg
 
 logger = logging.getLogger(__name__)
 
+# Lista de termos financeiros que o NER PT confunde com nomes
+FINANCIAL_ALLOW_LIST = [
+    "Brent", "S&P", "S&P 500", "Wall Street", "Nasdaq",
+    "Bovespa", "Ibovespa", "Selic", "Copom", "Fed", "FOMC",
+    "USD", "BRL", "EUR", "WTI",
+    # Termos do framework LangChain que não são PII
+    "Agent", "AgentExecutor", "Action", "Thought", "Observation",
+]
 
 # =============================================================================
 # Input Guardrail — regex puro, sem deps pesadas
@@ -100,10 +108,42 @@ class OutputGuardrail:
 
     def _ensure_loaded(self) -> None:
         if self._analyzer is None:
-            from presidio_analyzer import AnalyzerEngine
+            import logging
+            from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
+            from presidio_analyzer.nlp_engine import NlpEngineProvider
             from presidio_anonymizer import AnonymizerEngine
 
-            self._analyzer = AnalyzerEngine()
+            # 0. Silencia os logs  do Presidio (mostra apenas Erros graves)
+            logging.getLogger("presidio-analyzer").setLevel(logging.ERROR)
+
+            # 1. Configura o Presidio para usar o dicionário spaCy em Português
+            nlp_config = {
+                "nlp_engine_name": "spacy",
+                "models": [{"lang_code": "pt", "model_name": "pt_core_news_sm"}]
+            }
+
+            provider = NlpEngineProvider(nlp_configuration=nlp_config)
+            nlp_engine = provider.create_engine()
+
+            # 2. Injeta o motor em português no AnalyzerEngine
+            self._analyzer = AnalyzerEngine(
+                nlp_engine=nlp_engine,
+                supported_languages=["pt"]
+            )
+            
+            # 3. Ensina o Presidio a achar CPFs no formato brasileiro
+            cpf_pattern = Pattern(
+                name="cpf_regex", 
+                regex=r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b", 
+                score=0.8
+            )
+            cpf_recognizer = PatternRecognizer(
+                supported_entity="BR_CPF", 
+                patterns=[cpf_pattern], 
+                supported_language="pt"
+            )
+            self._analyzer.registry.add_recognizer(cpf_recognizer)
+
             self._anonymizer = AnonymizerEngine()
 
     def sanitize(self, llm_output: str) -> str:
@@ -116,6 +156,8 @@ class OutputGuardrail:
             text=llm_output,
             language=self.language,
             entities=self.entities,
+            allow_list=FINANCIAL_ALLOW_LIST, 
+            score_threshold=0.85
         )
 
         if not results:

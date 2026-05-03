@@ -1,52 +1,60 @@
 # --- Core: Domínio 1 (LSTM IBOV) ---
-pydantic
-PyYAML
-pandera
-joblib
-mlflow
-numpy
-pandas
-scikit-learn
-tensorflow
-yfinance
-matplotlib
-statsmodels
-ipykernel
+pydantic==2.13.3
+PyYAML==6.0.3
+pandera==0.31.1
+joblib==1.5.3
+mlflow==3.11.1
+numpy==1.26.4
+pandas==2.3.3
+scikit-learn==1.8.0
+tensorflow==2.16.2
+yfinance==1.3.0
+matplotlib==3.10.9
+statsmodels==0.14.6
+ipykernel==7.2.0
 
 # --- Domínio 2: Agente LLM + RAG ---
-langchain
-langchain-community
-langchain-groq
-langchain-huggingface
-langchain_chroma
-chromadb
-sentence-transformers
-pypdf
-tf_keras
+langchain==1.2.17
+langchain-chroma==1.1.0
+langchain-classic==1.0.4
+langchain-community==0.4.1
+langchain-core==1.3.2
+langchain-groq==1.1.2
+langchain-huggingface==1.2.2
+langchain-openai==1.2.1
+langchain-protocol==0.0.15
+langchain-text-splitters==1.1.2
+chromadb==1.5.8
+sentence-transformers==5.4.1
+pypdf==6.10.2
+tf_keras==2.16.0
 
 # --- Serving (FastAPI) ---
-fastapi
-uvicorn[standard]
-python-multipart
-httpx
+fastapi==0.136.1
+uvicorn==0.46.0
+python-multipart==0.0.27
+httpx==0.28.1
 
 # --- Segurança (guardrails) ---
-presidio-analyzer
-presidio-anonymizer
-spacy
+presidio_analyzer==2.2.362
+presidio_anonymizer==2.2.362
+spacy==3.8.14
 
 # --- Avaliação RAG/LLM ---
-ragas
-datasets
-langfuse
+ragas==0.4.3
+datasets==4.8.5
+langfuse==2.60.10
 
 # --- Monitoramento (drift + telemetria) ---
-evidently
-prometheus-client
+evidently==0.7.16
+prometheus_client==0.25.0
 
 # --- Qualidade ---
-pytest
-pytest-cov
-ruff
-mypy
-bandit
+pytest==9.0.3
+pytest-cov==7.1.0
+ruff==0.15.12
+mypy==1.20.2
+bandit==1.9.4
+
+# -- Outros ---
+python-dotenv==1.2.2

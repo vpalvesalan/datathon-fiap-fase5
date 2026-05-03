@@ -41,8 +41,8 @@ PROMPT_VARIANTS: dict[str, str] = {
 def _evaluate_with_prompt(prompt_name: str, system_prompt: str, golden: list) -> dict:
     """Roda RAGAS com um system prompt customizado."""
     from datasets import Dataset
-    from langchain.agents import AgentExecutor, create_react_agent
-    from langchain.prompts import PromptTemplate
+    from langchain_classic.agents import AgentExecutor, create_react_agent
+    from langchain_classic.prompts import PromptTemplate
     from ragas import evaluate
     from ragas.metrics import (
         answer_relevancy,

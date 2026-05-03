@@ -35,8 +35,8 @@ def _evaluate_config(cfg_dict: dict, golden: list) -> dict:
     import os
     from datasets import Dataset
     from langchain_groq import ChatGroq
-    from langchain.agents import AgentExecutor, create_react_agent
-    from langchain.prompts import PromptTemplate
+    from langchain_classic.agents import AgentExecutor, create_react_agent
+    from langchain_classic.prompts import PromptTemplate
     from ragas import evaluate
     from ragas.metrics import answer_relevancy, faithfulness
 

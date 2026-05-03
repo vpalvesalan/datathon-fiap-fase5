@@ -47,7 +47,23 @@ stages:
       - data/holdout_test/y_holdout.npy
 
   # -------------------------------------------------------------------------
-  # 3. Baseline Sklearn — piso de comparação para o LSTM
+  # 3. Drift check — PSI sobre treino vs. teste, dispara automaticamente
+  # quando os tensores mudam (ex: nova coleta + nova janela). Implementa
+  # o GAP 06 do guia. Saída JSON é trackeada pelo DVC.
+  # -------------------------------------------------------------------------
+  drift_check:
+    cmd: python -m src.monitoring.drift_detection
+    deps:
+      - src/monitoring/drift_detection.py
+      - src/ibov_pipeline/config.py
+      - data/processed/ibov/X_train.npy
+      - data/processed/ibov/X_test.npy
+    outs:
+      - data/processed/ibov/drift_report.json:
+          cache: false   # arquivo pequeno, pode ir pro git pra audit history
+
+  # -------------------------------------------------------------------------
+  # 4. Baseline Sklearn — piso de comparação para o LSTM
   # MLflow é a fonte da verdade para tracking; DVC só rastreia código + deps.
   # -------------------------------------------------------------------------
   train_baseline:

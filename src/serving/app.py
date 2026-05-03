@@ -4,6 +4,8 @@ Endpoints:
 - GET  /health              → smoke check, retorna status dos domínios.
 - POST /predict             → previsão direta do LSTM (sem agente).
 - POST /agent/query         → pergunta ao agente Copiloto, com guardrails.
+- GET  /metrics             → métricas Prometheus (operacionais).
+- GET  /chat                → UI Gradio (chat + linha de raciocínio).
 
 Fluxo de /agent/query:
     user_input → InputGuardrail → agente (LLM + tools) → OutputGuardrail → resposta
@@ -16,11 +18,12 @@ Tracing:
   callbacks são adicionados em paralelo. Sem env vars, só o MLflow roda.
 
 Uso local:
-    uvicorn src.serving.app:app --reload --port 8000
+    uvicorn src.serving.app:app --reload --port 7860
 """
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -37,6 +40,21 @@ from src.serving.schemas import (
 
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- STARTUP (Antes do yield) ---
+    from src.ibov_pipeline.logging_config import setup_logging
+    from src.monitoring.telemetry import setup_mlflow_tracing
+
+    setup_logging("api_serving")
+    setup_mlflow_tracing()
+    logger.info("API inicializada e instrumentada.")
+    
+    yield  # A API escuta as requisições neste ponto
+    
+    # --- SHUTDOWN (Depois do yield) ---
+    logger.info("Desligando a API...")
+
 
 app = FastAPI(
     title="Copiloto IBOV — API",
@@ -45,6 +63,7 @@ app = FastAPI(
         "com RAG e tools (Domínio 2). Ver `/docs` para schema interativo."
     ),
     version="0.1.0",
+    lifespan=lifespan, # Injeta o gerenciador de ciclo de vida moderno
 )
 
 
@@ -97,18 +116,6 @@ def _get_langfuse_callbacks() -> list:
 
 
 # Endpoints ------------------------------------------------------------------
-
-@app.on_event("startup")
-def _on_startup():
-    from src.ibov_pipeline.logging_config import setup_logging
-    from src.monitoring.telemetry import setup_mlflow_tracing
-
-    setup_logging("api_serving")
-    # MLflow Tracing como backend primário (auto-instrumenta LangChain).
-    # Langfuse, se configurado, ativa em paralelo via _get_langfuse_callbacks.
-    setup_mlflow_tracing()
-    logger.info("API inicializada.")
-
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
@@ -173,3 +180,11 @@ def agent_query(req: AgentQueryRequest) -> AgentQueryResponse:
         intermediate_steps=[str(s) for s in steps],
         model=agent_cfg.llm.model_name,
     )
+
+# ============================================================================
+# Montagem da Interface Gráfica (Gradio)
+# ============================================================================
+import gradio as gr
+
+from src.serving.gradio_app import build_gradio_blocks 
+app = gr.mount_gradio_app(app, build_gradio_blocks(), path="/chat")

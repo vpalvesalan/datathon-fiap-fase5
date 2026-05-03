@@ -72,15 +72,34 @@ def detect_drift(
     reference: np.ndarray,
     current: np.ndarray,
     log_to_mlflow: bool = True,
+    output_path: str | None = None,
 ) -> dict[str, float | str]:
-    """Pipeline completo: calcula PSI, classifica e (opcionalmente) loga no MLflow.
+    """Pipeline completo: calcula PSI, classifica, loga no MLflow e/ou JSON.
+
+    Args:
+        reference: Distribuição de referência (treino).
+        current: Distribuição atual (teste/produção).
+        log_to_mlflow: Loga métrica e tags em um nested run.
+        output_path: Se fornecido, persiste JSON do relatório nesse caminho.
+            Necessário para integração com DVC (stage `drift_check`).
 
     Returns:
-        {"psi": float, "level": str, "trigger_threshold": float}
+        {"psi": float, "level": str, "trigger_threshold": float, "timestamp": str}
     """
+    import json
+    from datetime import datetime, timezone
+    from pathlib import Path
+
     psi = compute_psi(reference, current)
     level = classify_drift(psi)
     threshold = cfg.retrain.retrain_trigger_psi
+
+    result = {
+        "psi": psi,
+        "level": level,
+        "trigger_threshold": threshold,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
     logger.info(
         "Drift detection: PSI=%.4f | level=%s | threshold=%.2f",
@@ -100,24 +119,33 @@ def detect_drift(
         except Exception as exc:  # noqa: BLE001
             logger.warning("Falha ao logar drift no MLflow: %s", exc)
 
-    return {
-        "psi": psi,
-        "level": level,
-        "trigger_threshold": threshold,
-    }
+    if output_path:
+        out = Path(output_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+        logger.info("Relatório de drift gravado em %s", out)
+
+    return result
 
 
 if __name__ == "__main__":
+    from pathlib import Path
+
     from src.ibov_pipeline.feature_engineering import load_artifacts
     from src.ibov_pipeline.logging_config import setup_logging
 
     setup_logging("drift_check")
 
     X_train, X_test, _, _, _ = load_artifacts()
+    output_path = Path(cfg.data.processed_x_path).parent / "drift_report.json"
+
     result = detect_drift(
         reference=X_train.flatten(),
         current=X_test.flatten(),
+        output_path=str(output_path),
     )
     print(f"\nPSI       : {result['psi']:.4f}")
     print(f"Nível     : {result['level']}")
     print(f"Threshold : {result['trigger_threshold']}")
+    print(f"Relatório : {output_path}")

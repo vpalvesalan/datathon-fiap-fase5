@@ -1,5 +1,7 @@
 # OWASP Top 10 LLM (2025) — Mapeamento de Mitigações
 
+(Os 10 riscos de segurança mais críticos para projetos envolvendo LLM)
+
 Referência: https://owasp.org/www-project-top-10-for-large-language-model-applications/
 
 Mapeamento de **6 ameaças** (≥ 5 exigidas pelo guia) com mitigação implementada e evidência no código.

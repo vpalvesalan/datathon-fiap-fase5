@@ -13,19 +13,30 @@ para decidir trades autonomamente.
 ## 2. Arquitetura
 
 ```
-Cliente HTTP
-    │
-    ▼
-FastAPI (src/serving/app.py)
-    ├──► /predict  ───► LSTM (MLflow Registry → Production)
-    └──► /agent/query
-            ├─ InputGuardrail (regex, OWASP LLM01)
-            ├─ Agente ReAct (Groq Llama 3.3 70B)
-            │     ├─ ibov_forecast      (LSTM via tool)
-            │     ├─ macro_rag          (ChromaDB + multilingual MiniLM)
-            │     ├─ calculator         (anti-alucinação numérica)
-            │     └─ market_context     (yfinance live)
-            └─ OutputGuardrail (Presidio, OWASP LLM06)
+                 ┌──────────────────────────────────────────┐
+                 │  RENDER (cloud — auto-deploy on push)    │
+                 │  Container Docker (FastAPI + Gradio)     │
+                 │     ├──► /predict  → LSTM (Registry)     │
+                 │     ├──► /agent/query                    │
+                 │     │     ├─ InputGuardrail (LLM01)      │
+                 │     │     ├─ Agente ReAct (Groq 70B)     │
+                 │     │     │   ├─ ibov_forecast           │
+                 │     │     │   ├─ macro_rag (ChromaDB)    │
+                 │     │     │   ├─ calculator              │
+                 │     │     │   └─ market_context          │
+                 │     │     └─ OutputGuardrail (LLM06)     │
+                 │     ├──► /chat    → UI Gradio            │
+                 │     └──► /metrics → Prometheus           │
+                 └──────────────────────────────────────────┘
+                                  ▲
+                                  │ scrape
+                                  │
+                 ┌──────────────────────────────────────────┐
+                 │  LOCAL (docker-compose, demo + dev)      │
+                 │  ├─ Prometheus (9090)                    │
+                 │  ├─ Grafana    (3000)                    │
+                 │  └─ MLflow UI  (5000)                    │
+                 └──────────────────────────────────────────┘
 ```
 
 ## 3. Componentes e versões
@@ -36,7 +47,8 @@ FastAPI (src/serving/app.py)
 | Embeddings | `paraphrase-multilingual-MiniLM-L12-v2` (HF) | `rag_retriever.py` |
 | Vector store | ChromaDB persistente | `data/processed/agent_db/` |
 | Orquestração | LangChain ReAct | `react_agent.py` |
-| Serving | FastAPI + uvicorn | `src/serving/` |
+| Serving | FastAPI + uvicorn (no Render, plano free) | `src/serving/`, `render.yaml` |
+| UI | Gradio montado em `/chat` (mesmo container, streaming) | `src/serving/gradio_app.py` |
 | Guardrails | Regex + Presidio | `src/security/guardrails.py` |
 | Telemetria | MLflow Tracing (primário) + Langfuse (opcional) + Prometheus | `src/monitoring/telemetry.py` |
 | Drift | PSI manual + Evidently opcional | `src/monitoring/drift_detection.py` |
@@ -104,6 +116,52 @@ prompts), basta preencher `LANGFUSE_PUBLIC_KEY` no `.env` que ambos os
 backends rodam em paralelo, sem conflito. Decisão reversível por
 configuração.
 
+### Por que Render como hospedagem (e não Hugging Face Spaces)?
+
+Avaliamos HF Spaces e Render para hospedar o serving. Optamos por
+**Render** pelos seguintes diferenciais que importam para o escopo MLOps:
+
+| Critério | HF Spaces (free) | Render (free) |
+|---|---|---|
+| Multi-container (`docker-compose`) | ❌ só 1 container | ✅ blueprint suporta múltiplos |
+| Persistent disk no free tier | ❌ volátil | ⚠️ paid (não usamos) |
+| Cron jobs nativos | ❌ | ✅ (futuro retreino agendado) |
+| Filosofia | "showcase de IA" | "PaaS genérico, MLOps-friendly" |
+| Auto-deploy via Git push | ✅ | ✅ |
+
+CD configurado via [`render.yaml`](../render.yaml) — push em `main`
+dispara webhook nativo do Render que rebuilda a imagem e faz redeploy.
+**Sem GitHub Actions de deploy** — menos secrets, menos código.
+
+### Por que observabilidade local (Prometheus + Grafana)?
+
+Stack via [`docker-compose.yml`](../docker-compose.yml) na máquina do
+desenvolvedor. **Não roda no Render** porque:
+
+1. Render free tier é single-container — não cabe Prometheus + Grafana + API.
+2. Prometheus é "puxador" — pode fazer scrape do `/metrics` do Render via
+   HTTPS, sem precisar estar na mesma rede.
+3. Grafana Cloud free tier é alternativa válida para produção real, mas
+   adiciona conta externa para o demo.
+
+Padrão alinhado com produção real: observabilidade vive em estação
+separada do produto. No Demo Day, dois terminais — um com `docker-compose
+up`, outro com queries pra API hospedada — basta para mostrar o ciclo
+completo (operacional via Grafana, qualidade LLM via MLflow Tracing).
+
+### Por que Gradio em `/chat` no MESMO container do FastAPI?
+
+Padrão oficial do Gradio: `gr.mount_gradio_app(fastapi_app, blocks,
+path="/chat")`. Vantagens sobre container separado:
+
+1. **Single deploy** — Render free tier suporta 1 web service por blueprint.
+2. **Reuso de singletons** — guardrails, agent executor e callbacks Langfuse
+   são compartilhados entre os endpoints REST e a UI Gradio (lazy import
+   evita ciclo).
+3. **Streaming progressivo** — UI usa `agent_executor.stream()` em vez de
+   `invoke()`, mostrando passos do ReAct (Action / Observation) em tempo
+   real ao usuário, não só a resposta final.
+
 **Observações**:
 * **Prompt:**
    * O agente estava tentando usar a ferramenta `macro_rag` novamente (em um loop infinito) quando não encontrava a informação requerida. Instrução explicita foi inclusa no prompt para evitar o consumo de tokens desnecessários: 
@@ -130,22 +188,44 @@ Mapeamento OWASP completo em `docs/OWASP_MAPPING.md`.
 | Negócio | factual_correctness, business_relevance, no_hallucination | `evaluation/llm_judge.py` |
 | Prompt | A/B test em ≥3 system prompts | `evaluation/ab_test_prompts.py` |
 | Modelo | Benchmark em ≥3 configurações | `evaluation/benchmark_llm.py` |
-| Drift | PSI sobre features e predições | `src/monitoring/drift_detection.py` |
+| Drift | PSI sobre features e predições — stage `drift_check` no DVC | `src/monitoring/drift_detection.py`, `dvc.yaml` |
 
-Resultados em `evaluation/results/*.json`.
+Resultados em `evaluation/results/*.json` e `data/processed/ibov/drift_report.json`.
 
 ## 7. Observabilidade
 
-- **MLflow Tracing** (primário) — `mlflow.langchain.autolog()` é chamado
-  no startup do FastAPI e instrumenta automaticamente todas as chamadas
-  LangChain (LLM, tools, retriever). Traces hierárquicos visíveis no
-  MLflow UI → experiment `agent-tracing`, com inputs, outputs, latência
-  e contagem de tokens por span.
-- **Langfuse** (fallback opcional) — ativa em paralelo se as env vars
-  `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` estiverem configuradas. Útil
-  para dashboards específicos de LLM (custo por modelo, scores agregados).
-- **Prometheus** expõe contadores operacionais (queries, latência, erros).
-- **Logs persistentes** em `logs/<run>_<timestamp>.log` para auditoria forense.
+Implementação dividida em duas camadas conforme padrão de produção real
+(produto vive em uma máquina, observabilidade em outra):
+
+### Camada CLOUD (Render)
+- **MLflow Tracing** — `mlflow.langchain.autolog()` instrumenta cada chamada
+  LangChain (LLM, tools, retriever) ao startup. Traces ficam no `mlruns/`
+  do container — voláteis entre deploys (decisão deliberada; ver §4).
+- **Langfuse** (fallback opcional) — ativa em paralelo se
+  `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` estiverem nas env vars do
+  Render dashboard. Para persistir traces de produção sem usar disco.
+- **Endpoint `/metrics`** — formato Prometheus, exposto publicamente para
+  scrape externo.
+- **Logs em `logs/<run>_<timestamp>.log`** — também voláteis no Render.
+
+### Camada LOCAL (docker-compose)
+- **Prometheus** (porta 9090) — faz scrape do `/metrics` do Render a cada
+  15s (ver `infra/prometheus.yml`).
+- **Grafana** (porta 3000) — dashboard "Copiloto IBOV — Operacional"
+  provisionado automaticamente, com 8 painéis: queries/min, latência
+  p50/p95/p99, taxa de bloqueio do guardrail, taxa de erros, distribuição
+  por modelo, total de previsões LSTM.
+- **MLflow UI** (porta 5000) — apontando para `mlruns/` local, mostra
+  histórico de runs de treino + traces de queries feitas localmente.
+
+Setup detalhado em [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
+
+### Drift detection automático (GAP 06)
+Stage `drift_check` no [`dvc.yaml`](../dvc.yaml) computa PSI entre `X_train`
+e `X_test` toda vez que os tensores mudam. Resultado vai para
+`data/processed/ibov/drift_report.json` (versionado pelo Git para audit
+trail) e MLflow (nested run com `tag pipeline_stage='monitoring'`).
+Threshold em `cfg.retrain.retrain_trigger_psi=0.20` aciona retreinamento.
 
 ## 8. Limitações conhecidas
 
@@ -153,6 +233,7 @@ Resultados em `evaluation/results/*.json`.
 2. RAG depende da qualidade/atualidade dos PDFs em `data/raw/agent_docs/`.
 3. Groq tem rate limit no free tier (e.g. 12k tokens / min).
 4. Sem cache de respostas — cada query roda o pipeline completo.
+5. **Feature Management sem materialização incremental.** O `feature_engineering.run()` reprocessa o dataset inteiro a cada `dvc repro`, mesmo quando apenas os pregões mais recentes mudaram. Não há feature store dedicado (Feast / Hopsworks / Tecton). Decisão deliberada: o IBOV tem ~1.700 pontos e o reprocessamento custa < 2s — o ROI de implementar materialização incremental seria marginal neste escopo. **Mitigação parcial existente**: (a) DVC versiona os tensores via cache hash-based, evitando recomputação quando deps não mudam; (b) funções de feature engineering (`fit_scaler`, `create_sequences`, `chronological_split`) são compartilhadas entre treino, inferência (`predict.py`) e testes — reuso real, não copy-paste; (c) `dataset_hash` (SHA-256 dos tensores) é tag MLflow obrigatória, dando lineage por run. Para produção em escala (datasets > 1M pontos ou dezenas de features), o caminho seria (i) detecção incremental por hash do CSV bruto + delta-merge no tail, ou (ii) feature store dedicado com materialização sob demanda.
 
 ## 9. Conformidade LGPD
 

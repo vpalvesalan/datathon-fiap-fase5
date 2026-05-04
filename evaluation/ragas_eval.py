@@ -147,11 +147,35 @@ def evaluate_rag_pipeline(
                 limiter.wait_if_needed()
                 logger.info("[%d/%d pendentes] %s", i, len(pending), q[:80])
 
-                ctx_docs = retriever.invoke(q)
-                contexts = [d.page_content for d in ctx_docs]
-
+                # Invoca o agente com return_intermediate_steps=True (já é
+                # default no create_copiloto_agent) para capturar o trace.
                 result = agent.invoke({"input": q})
                 answer = result.get("output", "")
+                steps = result.get("intermediate_steps", [])
+
+                # contexts = o que o agente REALMENTE consumiu durante o
+                # raciocínio. Para queries que usam macro_rag, vem o trecho
+                # do PDF; para ibov_forecast/calculator/market_context, vem
+                # o output da tool. Cada context é prefixado com o nome da
+                # tool ([macro_rag], [ibov_forecast], …) para auditoria.
+                #
+                # Trade-off conhecido: para queries não-RAG, `context_recall`
+                # do RAGAS pode ficar mais ruidoso (compara texto curto de
+                # tool com ground_truth descritivo). Aceitável — mantém
+                # alinhamento com o que de fato foi consumido. Documentado
+                # no SYSTEM_CARD_AGENT.md, seção Limitações.
+                contexts = [
+                    f"[{action.tool}] {str(observation)}"
+                    for action, observation in steps
+                ]
+
+                # Fallback: se o agente respondeu direto sem usar nenhuma
+                # tool (raro com este prompt, mas pode acontecer em queries
+                # triviais), garante que RAGAS tenha algum contexto.
+                if not contexts:
+                    ctx_docs = retriever.invoke(q)
+                    contexts = [d.page_content for d in ctx_docs]
+                    logger.info("Pergunta resolvida sem tool — fallback ao retriever.")
 
                 row = {
                     "question": q,

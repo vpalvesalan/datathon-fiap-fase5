@@ -127,11 +127,13 @@ def health() -> HealthResponse:
 def predict(req: PredictRequest) -> PredictResponse:
     """Previsão direta do LSTM (sem passar pelo agente)."""
     from src.ibov_pipeline.predict import predict_next_day
+    from src.monitoring.telemetry import record_lstm_prediction
 
     try:
         import numpy as np
         window = np.asarray(req.recent_close_window, dtype=float) if req.recent_close_window else None
         out = predict_next_day(recent_close_window=window)
+        record_lstm_prediction()
         return PredictResponse(**out)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
@@ -142,9 +144,17 @@ def predict(req: PredictRequest) -> PredictResponse:
 @app.post("/agent/query", response_model=AgentQueryResponse)
 def agent_query(req: AgentQueryRequest) -> AgentQueryResponse:
     """Pergunta ao agente Copiloto com guardrails de input/output."""
+    import time
+    from src.agent_pipeline.config import agent_cfg
+    from src.monitoring.telemetry import record_agent_query
+
+    t0 = time.perf_counter()
+    model_name = agent_cfg.llm.model_name
+
     # 1) Input guardrail
     ok, reason = _get_input_guard().validate(req.question)
     if not ok:
+        record_agent_query(model=model_name, status="blocked", duration_s=time.perf_counter() - t0)
         return AgentQueryResponse(
             answer="",
             intermediate_steps=[],
@@ -161,6 +171,7 @@ def agent_query(req: AgentQueryRequest) -> AgentQueryResponse:
             config={"callbacks": callbacks} if callbacks else None,
         )
     except Exception as exc:  # noqa: BLE001
+        record_agent_query(model=model_name, status="error", duration_s=time.perf_counter() - t0)
         logger.exception("Erro no agente.")
         raise HTTPException(status_code=500, detail=f"Erro interno: {exc}")
 
@@ -174,12 +185,24 @@ def agent_query(req: AgentQueryRequest) -> AgentQueryResponse:
         logger.warning("Output guardrail falhou (%s) — retornando bruto.", exc)
         clean_answer = raw_answer
 
-    from src.agent_pipeline.config import agent_cfg
+    record_agent_query(model=model_name, status="ok", duration_s=time.perf_counter() - t0)
     return AgentQueryResponse(
         answer=clean_answer,
         intermediate_steps=[str(s) for s in steps],
-        model=agent_cfg.llm.model_name,
+        model=model_name,
     )
+
+
+# ============================================================================
+# Métricas Prometheus — endpoint /metrics consumido pelo Grafana local
+# ============================================================================
+
+try:
+    from prometheus_client import make_asgi_app
+    app.mount("/metrics", make_asgi_app())
+    logger.info("Endpoint /metrics (Prometheus) montado.")
+except ImportError:
+    logger.warning("prometheus_client não instalado — /metrics indisponível.")
 
 # ============================================================================
 # Montagem da Interface Gráfica (Gradio)

@@ -141,21 +141,69 @@ def create_copiloto_agent(tools: list | None = None):
         return_intermediate_steps=True
     )
 
-
 def query(question: str) -> dict:
-    """Atalho conveniente: cria agente, faz a pergunta, retorna resposta + traços.
+    """Atalho conveniente: cria agente, valida com guardrails, faz a pergunta, 
+    registra telemetria e retorna resposta + traços.
 
     Returns:
-        {"answer": str, "intermediate_steps": list, "model": str}
+        dict com chaves: answer, intermediate_steps, model, blocked, block_reason
     """
-    executor = create_copiloto_agent()
-    result = executor.invoke({"input": question})
-    return {
-        "answer": result.get("output", ""),
-        "intermediate_steps": result.get("intermediate_steps", []),
-        "model": agent_cfg.llm.model_name,
-    }
+    from src.security.guardrails import InputGuardrail, OutputGuardrail
+    from src.monitoring.telemetry import get_langfuse_callback
 
+    # 1) Input Guardrail
+    input_guard = InputGuardrail()
+    ok, reason = input_guard.validate(question)
+    if not ok:
+        logger.warning(f"Query bloqueada pelo Guardrail: {reason}")
+        return {
+            "answer": f"⚠️ Consulta bloqueada: {reason}",
+            "intermediate_steps": [],
+            "model": "blocked",
+            "blocked": True,
+            "block_reason": reason,
+        }
+
+    # 2) Configuração de Telemetria (Langfuse)
+    callbacks = []
+    lf_handler = get_langfuse_callback()
+    if lf_handler:
+        callbacks.append(lf_handler)
+
+    # 3) Criação e Invocação do Agente
+    executor = create_copiloto_agent()
+    try:
+        result = executor.invoke(
+            {"input": question},
+            config={"callbacks": callbacks} if callbacks else None
+        )
+        raw_answer = result.get("output", "")
+        steps = result.get("intermediate_steps", [])
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Erro interno na execução do agente.")
+        return {
+            "answer": f"❌ Erro ao consultar o agente: {exc}",
+            "intermediate_steps": [],
+            "model": agent_cfg.llm.model_name,
+            "blocked": False,
+            "block_reason": "Error",
+        }
+
+    # 4) Output Guardrail (Sanitização de PII)
+    output_guard = OutputGuardrail()
+    try:
+        clean_answer = output_guard.sanitize(raw_answer)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Output guardrail falhou (%s) — retornando bruto.", exc)
+        clean_answer = raw_answer
+
+    return {
+        "answer": clean_answer,
+        "intermediate_steps": steps,
+        "model": agent_cfg.llm.model_name,
+        "blocked": False,
+        "block_reason": "OK",
+    }
 
 if __name__ == "__main__":
     import sys

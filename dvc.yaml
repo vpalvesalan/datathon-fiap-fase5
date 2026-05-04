@@ -82,7 +82,7 @@ stages:
       - data/holdout_test/y_holdout.npy
 
   # -------------------------------------------------------------------------
-  # 4. Ingestão RAG — PDFs macro → ChromaDB persistente (Domínio 2)
+  # 5. Ingestão RAG — PDFs macro → ChromaDB persistente (Domínio 2)
   # -------------------------------------------------------------------------
   ingest_agent_docs:
     cmd: python -m src.agent_pipeline.rag_retriever
@@ -95,7 +95,7 @@ stages:
       - data/processed/agent_db
 
   # -------------------------------------------------------------------------
-  # 5. LSTM — grid search com nested runs no MLflow
+  # 6. LSTM — grid search com nested runs no MLflow
   # -------------------------------------------------------------------------
   train_lstm:
     cmd: python -m src.ibov_pipeline.train_lstm

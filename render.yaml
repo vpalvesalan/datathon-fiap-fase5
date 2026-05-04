@@ -1,0 +1,51 @@
+# =============================================================================
+# Blueprint do Render — declaração do serviço Copiloto IBOV.
+# Render lê esse arquivo automaticamente quando o repo é conectado via
+# "New Blueprint Instance". A cada push em main, faz redeploy automático.
+#
+# Setup uma única vez:
+#   1. Criar conta em https://render.com (free tier)
+#   2. New → Blueprint → Connect GitHub → escolher este repo
+#   3. Render detecta este render.yaml e cria o serviço
+#   4. Configurar variáveis de ambiente sensíveis (GROQ_API_KEY etc.) no
+#      dashboard do Render → "Environment" — NÃO commitar no Git
+#
+# Após o setup, o ciclo é:
+#   git push origin main
+#       ↓
+#   Render webhook detecta o push
+#       ↓
+#   Build da imagem Docker via Dockerfile
+#       ↓
+#   Healthcheck /health passa
+#       ↓
+#   Tráfego migra para nova versão
+# =============================================================================
+
+services:
+  - type: web
+    name: copiloto-ibov
+    runtime: docker
+    dockerfilePath: ./src/serving/Dockerfile
+    dockerContext: .
+    plan: free                # 512 MB RAM, sleeps após 15 min de inatividade
+    region: oregon            # alterar se preferir outra região
+    branch: main
+    autoDeploy: true          # auto-deploy a cada push em main
+    healthCheckPath: /health
+    envVars:
+      # Variáveis SENSÍVEIS — preencher manualmente no dashboard do Render.
+      # `sync: false` impede que o Render tente sincronizar com este YAML.
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        sync: false
+      # Variáveis NÃO sensíveis — podem ficar versionadas aqui
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: TF_CPP_MIN_LOG_LEVEL
+        value: "2"

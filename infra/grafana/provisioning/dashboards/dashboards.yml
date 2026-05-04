@@ -1,0 +1,18 @@
+# =============================================================================
+# Provisioning de dashboards: Grafana lê tudo em /var/lib/grafana/dashboards/
+# automaticamente no startup. Os JSONs ficam em infra/grafana/dashboards/.
+# =============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: 'copiloto-ibov'
+    orgId: 1
+    folder: 'Copiloto IBOV'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

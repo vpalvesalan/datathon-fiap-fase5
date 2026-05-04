@@ -1,0 +1,35 @@
+# =============================================================================
+# Prometheus — config local (consumido pelo docker-compose).
+# Faz scrape de:
+#   1. FastAPI rodando localmente em host.docker.internal:7860
+#   2. (opcional) FastAPI hospedado no Render — descomente e ajuste a URL.
+#
+# Reload: docker exec copiloto-prometheus kill -HUP 1
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  # --- FastAPI local (uvicorn rodando em :7860) ---
+  - job_name: 'copiloto-local'
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 'host.docker.internal:7860'
+        labels:
+          env: 'local'
+          service: 'copiloto-ibov'
+
+  # --- FastAPI hospedado (descomente após deploy no Render) ---
+  # - job_name: 'copiloto-render'
+  #   metrics_path: /metrics
+  #   scheme: https
+  #   static_configs:
+  #     - targets:
+  #         - 'seu-app.onrender.com'
+  #       labels:
+  #         env: 'production'
+  #         service: 'copiloto-ibov'

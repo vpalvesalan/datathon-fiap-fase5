@@ -69,15 +69,15 @@ de signatários, e-mails de contato.
 
 | Papel | Responsabilidade |
 |---|---|
-| Controlador | grupo-XX (Datathon Fase 05) |
-| Encarregado (DPO) | _preencher: pessoa designada_ |
-| Operador | Groq (LLM API), Langfuse (telemetria) — contratos com cláusulas LGPD |
+| Controlador | Alan Alves (Datathon Fase 05) |
+| Encarregado (DPO) | Ricardo Cataldi |
+| Operador | Groq (LLM API), MLflow (telemetria) — contratos com cláusulas LGPD |
 
 ## 8. Plano de incidentes
 
 Em caso de incidente de segurança envolvendo dados pessoais:
 
-1. **Detecção**: alertas Prometheus + revisão Langfuse.
+1. **Detecção**: alertas Prometheus + revisão MlFlow.
 2. **Contenção**: desativar o endpoint via feature flag.
 3. **Notificação**: ANPD em até 2 dias úteis (Art. 48).
 4. **Comunicação aos titulares**: e-mail aos afetados em até 7 dias.

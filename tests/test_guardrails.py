@@ -71,10 +71,16 @@ presidio = pytest.importorskip(
 
 
 def test_output_guard_passthrough_when_no_pii():
+    """Sem PII em texto neutro de mercado, output deve passar inalterado.
+
+    Usa PT porque guardrails.py é configurado com supported_languages=['pt']
+    (modelo pt_core_news_sm carregado via NlpEngineProvider).
+    """
     from src.security.guardrails import OutputGuardrail
 
-    g = OutputGuardrail(language="en")  # 'en' tem motor pré-treinado
-    text = "The IBOV closed at 130000 points yesterday."
+    g = OutputGuardrail(language="pt")
+    # Texto neutro de mercado, sem nomes próprios PT que disparem o NER.
+    text = "O índice fechou em alta com volume normalizado no fechamento."
     out = g.sanitize(text)
     assert out == text
 
@@ -82,6 +88,7 @@ def test_output_guard_passthrough_when_no_pii():
 def test_output_guard_redacts_email():
     from src.security.guardrails import OutputGuardrail
 
-    g = OutputGuardrail(language="en", entities=["EMAIL_ADDRESS"])
-    out = g.sanitize("Contact me at john.doe@example.com for details.")
-    assert "john.doe@example.com" not in out
+    # EMAIL_ADDRESS é detectado por padrão regex independente da língua
+    g = OutputGuardrail(language="pt", entities=["EMAIL_ADDRESS"])
+    out = g.sanitize("Contato: joao.silva@empresa.com.br para detalhes.")
+    assert "joao.silva@empresa.com.br" not in out

@@ -75,34 +75,20 @@ jobs:
         run: docker build -f src/serving/Dockerfile -t copiloto-ibov:latest .
 
   deploy_staging:
-    name: Deploy to Hugging Face Spaces (Staging)
+    name: Deploy to Render
     needs: build
+    
+    # Executa apenas quando houver push na branch 'main'
     if: github.ref == 'refs/heads/main' 
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Necessário para o Git pegar o histórico e fazer o push
-      
-      - name: Push to Hugging Face
+      - name: Trigger Render Deploy
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          # 1. O Hugging Face EXIGE que o Dockerfile esteja na raiz. 
-          # Copiamos o seu Dockerfile para a raiz apenas no momento do deploy.
-          cp src/serving/Dockerfile ./Dockerfile
-          
-          # 2. Configura o usuário robô do Git
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-          
-          # 3. Faz o commit da movimentação do Dockerfile
-          git add Dockerfile
-          git commit -m "Auto-move Dockerfile to root for HF Spaces deployment" || echo "Sem mudanças para commitar"
-          
-          # 4. Configura o endereço do Hugging Face (Substitua pelos seus dados reais abaixo!)
-          git remote add huggingface https://USER:${HF_TOKEN}@huggingface.co/spaces/SEU_USUARIO_HF/NOME_DO_SEU_SPACE
-          
-          # 5. Força o envio do código para lá
-          git push --force huggingface main:main
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "Erro: RENDER_DEPLOY_HOOK_URL não está configurado nos Secrets do GitHub."
+            exit 1
+          fi
+          echo "Disparando deploy no Render..."
+          curl -f -X POST "$DEPLOY_HOOK"

@@ -65,9 +65,9 @@ def _save_partial(partial: dict[str, dict]) -> None:
 # 3 configurações intencionalmente diferentes ---------------------------------
 
 LLM_CONFIGS: list[dict] = [
-    {"name": "llama-3.1-8b",   "model": "llama-3.1-8b-instant",     "temperature": 0.0},
+    {"name": "qwen3-32b",   "model": "qwen/qwen3-32b",     "temperature": 0.0},
     {"name": "llama-3.3-70b",  "model": "llama-3.3-70b-versatile",  "temperature": 0.0},
-    {"name": "llama-3.3-70b-warm", "model": "llama-3.3-70b-versatile", "temperature": 0.7},
+    {"name": "gpt-oss-120b", "model": "openai/gpt-oss-120b", "temperature": 0.0},
 ]
 
 

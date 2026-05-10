@@ -1,7 +1,16 @@
 # =============================================================================
 # Dockerfile do serviço — multi-stage build para imagem mínima.
+#
+# Arquitetura: Modelo treinado localmente + versionado no Git vem junto.
+# O treino NÃO acontece aqui; apenas serve o modelo já treinado.
+#
 # Build:  docker build -f src/serving/Dockerfile -t copiloto-ibov:latest .
 # Run:    docker run -p 7860:7860 --env-file .env copiloto-ibov:latest
+#
+# Fluxo:
+#   LOCAL: dvc repro → treina modelo → git commit data/processed/
+#          ↓
+#   RENDER: docker build (copia data/processed/) → docker run (serve)
 # =============================================================================
 
 FROM python:3.12-slim AS builder
@@ -25,10 +34,10 @@ WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
-# Código + configs
+# Código + artefatos de modelo (treinados localmente, versionados no Git)
 COPY src/ /app/src/
-COPY data/processed/ibov/ /app/data/processed/ibov/
-COPY data/processed/agent_db/ /app/data/processed/agent_db/
+COPY data/processed/ibov/ /app/data/processed/ibov/     # model_lstm.keras, scaler.joblib, drift_report.json
+COPY data/processed/agent_db/ /app/data/processed/agent_db/  # vector store (RAG)
 
 # Usuário não-root
 RUN useradd -m -u 1000 apiuser && chown -R apiuser /app

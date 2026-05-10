@@ -14,6 +14,11 @@ on:
       - 'pytest.ini'
       - '.coveragerc'
       - '.github/workflows/ci.yml'
+      - 'data/processed/ibov/model_lstm.keras'
+      - 'data/processed/ibov/scaler.joblib'
+      - 'data/processed/agent_db/'
+      - 'data/processed/ibov/drift_report.json'
+      - 'src/serving/Dockerfile'
   pull_request:
     branches: [main, develop]
 

@@ -3,18 +3,59 @@
 Implementa o critério da Etapa 3: "Compara ≥ 3 variações de system prompt
 no golden set e reporta delta nas métricas RAGAS".
 
+Persistência incremental:
+- Cada prompt avaliado é gravado IMEDIATAMENTE em
+  `evaluation/results/ab_test_partial_results.json`.
+- Se exceder rate limit ou crashar, o progresso já está em disco.
+- Re-executar detecta prompts já avaliados e PULA — você retoma de onde parou.
+- Para reprocessar do zero, apague o arquivo `.json` antes.
+
 Uso:
-    python -m evaluation.ab_test_prompts
+    python -m evaluation.ab_test_prompts                  # roda / retoma
+    rm evaluation/results/ab_test_partial_results.json    # reset duro
 """
 from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from src.agent_pipeline.config import agent_cfg
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Persistência incremental
+# =============================================================================
+
+def _partial_results_path() -> Path:
+    """Caminho do arquivo incremental de resultados parciais."""
+    return Path(agent_cfg.evaluation.ab_test_output).parent / "ab_test_partial_results.json"
+
+
+def _load_partial() -> dict[str, dict]:
+    """Lê resultados já processados (dict com prompt_name como chave)."""
+    path = _partial_results_path()
+    if not path.exists():
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError as exc:
+        logger.warning("Arquivo parcial corrompido (%s) — ignorando.", exc)
+        return {}
+
+
+def _save_partial(partial: dict[str, dict]) -> None:
+    """Salva resultados parciais de forma durável."""
+    path = _partial_results_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(partial, f, indent=2, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
 
 
 # 3 variantes de system prompt para comparar -----------------------------------
@@ -96,17 +137,64 @@ def _evaluate_with_prompt(prompt_name: str, system_prompt: str, golden: list) ->
 
 
 def run_ab_test(output_path: str | None = None) -> dict:
-    """Roda os 3+ prompts e salva o comparativo."""
+    """Roda os 3+ prompts com persistência incremental.
+
+    Comportamento: cada prompt é avaliado e salvo imediatamente em
+    ab_test_partial_results.json. Re-executar pula prompts já avaliados.
+
+    Returns:
+        Dicionário com resultados finais e vencedor.
+    """
+    from evaluation._rate_limit import from_config as _build_limiter
+
     golden_path = Path(agent_cfg.golden_set.path)
     with open(golden_path, encoding="utf-8") as f:
         golden = json.load(f)
 
-    results = []
-    for name, sysp in PROMPT_VARIANTS.items():
-        logger.info("Avaliando variante: %s", name)
-        results.append(_evaluate_with_prompt(name, sysp, golden))
+    # --- Retomada: lê o que já existe em disco ---
+    partial = _load_partial()
+    completed: set[str] = set(partial.keys())
+    pending = [name for name in PROMPT_VARIANTS if name not in completed]
 
-    # Identifica vencedor pelo faithfulness (critério primário)
+    if completed:
+        logger.info(
+            "Retomando A/B test — %d/%d variantes já em %s",
+            len(completed), len(PROMPT_VARIANTS), _partial_results_path(),
+        )
+
+    if pending:
+        limiter = _build_limiter()
+        logger.info(
+            "Rate limit ativo: %d tok/min, %.1fs entre chamadas (estimado).",
+            agent_cfg.llm.rate_limit.tokens_per_minute,
+            limiter.seconds_per_call,
+        )
+        logger.info("%d variantes pendentes nesta execução.", len(pending))
+
+        for i, name in enumerate(pending, 1):
+            sysp = PROMPT_VARIANTS[name]
+            try:
+                limiter.wait_if_needed()
+                logger.info("[%d/%d pendentes] avaliando variante: %s", i, len(pending), name)
+
+                result = _evaluate_with_prompt(name, sysp, golden)
+                partial[name] = result
+                _save_partial(partial)
+
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "Falha na variante '%s' (%s: %s). %d variantes já em %s. "
+                    "Re-execute o script para retomar.",
+                    name, type(exc).__name__, exc,
+                    len(partial), _partial_results_path(),
+                )
+                raise
+
+    # --- Compila resultado final ---
+    if not partial:
+        raise RuntimeError("Nenhuma variante para avaliar.")
+
+    results = list(partial.values())
     winner = max(results, key=lambda r: r["faithfulness"])
 
     output = {
@@ -120,7 +208,8 @@ def run_ab_test(output_path: str | None = None) -> dict:
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-    logger.info("A/B test concluído | vencedor: %s", winner["prompt_name"])
+    logger.info("A/B test concluído | vencedor: %s | salvo em %s",
+                winner["prompt_name"], out_path)
     return output
 
 

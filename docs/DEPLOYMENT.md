@@ -1,26 +1,47 @@
 # Deployment & Observabilidade
 
-Este projeto separa **serving (cloud)** de **observabilidade (local)**:
+Este projeto separa **training (local)** de **serving (cloud)** com **observabilidade local**.
+
+Arquitetura:
+- **Local:** DVC treina → MLflow registra → Git versiona artefatos
+- **Cloud (Render):** Puxa código + modelo treinado → Serve sem retreinar
+- **Observabilidade:** MLflow/Prometheus/Grafana rodam localmente (não em Render)
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  RENDER (cloud — auto-deploy on git push)                │
-│  └─ Container Docker (FastAPI + Gradio + LSTM + Agente)  │
-│     - GET  /health                                       │
-│     - POST /predict                                      │
-│     - POST /agent/query                                  │
-│     - GET  /metrics       ← scraped pelo Prometheus      │
-│     - GET  /chat          ← UI Gradio                    │
-│     - GET  /docs          ← OpenAPI                      │
+│  LOCAL: Training + Development                           │
+│  ├─ dvc repro           → treina modelo                  │
+│  ├─ mlflow.log_model()  → registra em mlruns/            │
+│  ├─ create_model_version() → versiona no MLflow Registry │
+│  └─ git push (modelo + código vão juntos)                │
 └──────────────────────────────────────────────────────────┘
-                       ▲
-                       │ scrape /metrics a cada 15s
-                       │
+            ↓ (webhook GitHub → dispara CI)
 ┌──────────────────────────────────────────────────────────┐
-│  LOCAL (docker-compose, demo + dev)                      │
+│  CI Pipeline (GitHub Actions)                            │
+│  ├─ Lint, Type Check, Security Scan                      │
+│  ├─ Run Tests (pytest)                                   │
+│  ├─ Build Docker Image (validação)                       │
+│  └─ Trigger Render Deploy (webhook)                      │
+└──────────────────────────────────────────────────────────┘
+            ↓
+┌──────────────────────────────────────────────────────────┐
+│  RENDER (cloud — auto-deploy on git push)                │
+│  └─ Container Docker (código + modelo treinado)          │
+│     ├─ GET  /health                                      │
+│     ├─ POST /predict   (usa modelo em data/processed/)   │
+│     ├─ POST /agent/query                                 │
+│     ├─ GET  /metrics    ← scraped pelo Prometheus local  │
+│     ├─ GET  /chat       ← UI Gradio                      │
+│     └─ GET  /docs       ← OpenAPI                        │
+└──────────────────────────────────────────────────────────┘
+                         ▲
+                         │ scrape /metrics a cada 15s
+                         │ (Prometheus local apenas)
+┌──────────────────────────────────────────────────────────┐
+│  LOCAL: Observabilidade (docker-compose)                 │
 │  ├─ Prometheus  (porta 9090)                             │
 │  ├─ Grafana     (porta 3000) — dashboards provisionados  │
-│  └─ MLflow UI   (porta 5000) — `mlflow ui`               │
+│  └─ MLflow UI   (porta 5000) — dev only                  │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -44,41 +65,128 @@ Este projeto separa **serving (cloud)** de **observabilidade (local)**:
 
 5. Após salvar as env vars, o Render redeploya. Espere o **healthcheck** ficar verde.
 
-### Ciclo contínuo (a cada push)
+### Ciclo contínuo: Treinar → Versionar → Deploy
 
 ```bash
-# 1. Local: gerar artefatos atualizados (modelo + vector store)
+# ============================================================
+# FASE 1: LOCAL (Training)
+# ============================================================
+
+# 1.1 Treinar o modelo (DVC)
 dvc repro
 
-# 2. Versionar
+# 1.2 Registrar no MLflow (observabilidade local)
+python -c "
+import mlflow
+from mlflow import MlflowClient
+
+# Training deve fazer mlflow.keras.log_model(model, 'lstm-ibov-model')
+# Depois registra versão no Model Registry:
+
+client = MlflowClient()
+result = client.create_model_version(
+    name='lstm-ibov',
+    source='runs:/[RUN_ID]/lstm-ibov-model',  # substitua RUN_ID do run anterior
+    stage='Production'
+)
+print(f'✓ Registered model version {result.version}')
+"
+
+# 1.3 Validar modelo localmente (opcional)
+uvicorn src.serving.app:app --port 7860 --reload
+# Teste em http://localhost:7860/chat
+
+# ============================================================
+# FASE 2: VERSIONAMENTO (Git)
+# ============================================================
+
+# 2.1 Versioná artefatos (modelo + configs)
 git add data/processed/ibov/model_lstm.keras \
         data/processed/ibov/scaler.joblib \
         data/processed/agent_db/ \
-        data/processed/ibov/drift_report.json
-git commit -m "Re-treino + nova ingestão RAG"
+        data/processed/ibov/drift_report.json \
+        dvc.lock
 
-# 3. Push — Render detecta e faz redeploy automaticamente
+# 2.2 Commit com contexto
+git commit -m "Re-treino v2: acurácia 0.94, PSI=0.15
+
+- Drift detection: PASS (PSI < 0.20)
+- MLflow run: [ID do run local]
+- Modelo: lstm-ibov/Production"
+
+# ============================================================
+# FASE 3: DEPLOY (GitHub Actions → Render)
+# ============================================================
+
+# 3.1 Push (dispara CI + Render deploy)
 git push origin main
+
+# CI (GitHub Actions) automaticamente:
+# - Lint, type-check, security scan
+# - Run tests (pytest)
+# - Build Docker (valida Dockerfile + cópia de data/processed/)
+# - Trigger Render webhook (deploy)
+
+# Render:
+# - git pull (puxa código + modelo)
+# - docker build (COPY data/processed/ibov/ para imagem)
+# - docker run (uvicorn inicia)
+# ✓ Serviço online em ~30-60s
 ```
 
-Render lê o webhook do GitHub, faz rebuild da imagem (Docker), passa pelo healthcheck `/health` e migra o tráfego.
+**Fluxo automático após `git push`:**
+```
+git push
+  ↓ (webhook GitHub)
+GitHub Actions CI
+  ├─ Validações passam
+  ├─ Docker build OK
+  └─ curl webhook Render
+      ↓
+Render
+  ├─ git pull
+  ├─ docker build (com data/processed/)
+  ├─ docker run
+  └─ ✓ Online
+```
 
-### Notas sobre o free tier
+### Notas sobre o free tier do Render
 
-- **Sleep após 15 min** de inatividade. Cold start ~30s. Para o Demo Day, faça uma query de aquecimento 1 min antes da apresentação.
-- **Sem persistent disk** — `mlruns/` (MLflow tracing) é volátil. Traces de produção somem entre deploys (decisão arquitetural deliberada — ver `docs/SYSTEM_CARD_AGENT.md`).
-- **Sem Prometheus/Grafana no Render** — deliberado. Esses rodam localmente; ver seção 2.
+- **Sleep após 15 min** de inatividade. Cold start ~30s.
+- **Sem persistent disk** — `mlruns/` não sobe. Decisão deliberada: MLflow roda **localmente** para dev; em produção, servimos o modelo já treinado de `data/processed/` (imutável no container).
+- **Sem Prometheus/Grafana em Render** — deliberado. Esses rodam localmente (docker-compose); métricas de produção podem ser scrapeadas localmente se configurado.
 
-### Não quebrar nada que já existe
+### Estrutura da imagem Docker
 
-- `dvc.yaml`, treinamento, testes, evaluation: continuam locais. Render não roda treino.
-- `data/raw/`: NÃO é copiado pra imagem (Dockerfile só copia `data/processed/`). Coleta yfinance acontece sob demanda no `predict_next_day()` quando necessário.
+```dockerfile
+# src/serving/Dockerfile (multi-stage build)
+FROM python:3.12-slim AS builder
+  # ... instala dependências ...
+
+FROM python:3.12-slim AS runtime
+  COPY src/ /app/src/                         # código
+  COPY data/processed/ibov/ /app/data/...     # ← MODELO TREINADO
+  COPY data/processed/agent_db/ /app/data/... # ← VECTOR STORE
+  # ... inicia uvicorn ...
+```
+
+**O modelo é imutável na imagem.** Para retreinar, o fluxo é:
+1. Local: `dvc repro` + `mlflow log`
+2. Git: commit novo artefatos
+3. Push: dispara novo build no Render com modelo atualizado
+
+### CI: Monitorar mudanças em dados
+
+O arquivo [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) monitora:
+- Mudanças em `data/processed/ibov/model_lstm.keras` → dispara CI + deploy
+- Mudanças em `data/processed/agent_db/` → dispara CI + deploy
+- Mudanças em `src/serving/Dockerfile` → dispara CI (validação)
 
 ---
 
 ## 2. Observabilidade Local (Prometheus + Grafana + MLflow)
 
-Stack local levantada via Docker Compose.
+Stack local levantada via Docker Compose. **Não sobe para Render.**
 
 ### Subir a stack
 
@@ -116,20 +224,33 @@ O dashboard "Copiloto IBOV — Operacional" é provisionado automaticamente em `
 7. Total de previsões LSTM
 8. Distribuição de queries por modelo
 
+### MLflow no Local
+
+Após rodar `dvc repro` + `mlflow.log_model()`, os runs aparecem em <http://localhost:5000>:
+- **Experimento:** `ibov-forecasting`
+- **Tags importantes:**
+  - `pipeline_stage` (treino, avaliação, drift check)
+  - `data_version` (data de coleta)
+  - `model_version` (se registrado)
+
 ### Fazer scrape do Render também (opcional)
 
-Edite [`infra/prometheus.yml`](../infra/prometheus.yml), descomente a seção `copiloto-render` e ajuste a URL para o seu domínio do Render. Restart Prometheus:
+Para monitorar produção também no Grafana local:
+
+1. Edite [`infra/prometheus.yml`](../infra/prometheus.yml), descomente a seção `copiloto-render`
+2. Ajuste a URL para seu domínio do Render (ex: `https://copiloto-ibov.onrender.com/metrics`)
+3. Restart Prometheus:
 
 ```bash
 docker compose restart prometheus
 ```
 
-Agora o Grafana mostra métricas tanto locais quanto de produção, com label `env="local"` ou `env="production"`.
+Agora o Grafana mostra métricas de dev + produção com labels `env="local"` e `env="production"`.
 
 ### Derrubar a stack
 
 ```bash
-docker compose down            # mantém volumes (dados ficam)
+docker compose down            # mantém volumes (dados e dashboards ficam)
 docker compose down -v         # apaga volumes (limpa tudo)
 ```
 
@@ -139,12 +260,19 @@ docker compose down -v         # apaga volumes (limpa tudo)
 
 | Ambiente | Responsabilidade | Trigger |
 |---|---|---|
-| **GitHub Actions** ([`ci.yml`](../.github/workflows/ci.yml)) | Lint, type check, security scan, pytest com gate ≥ 60% | Push e PR |
-| **Render webhook** | Build da imagem + redeploy | Push em `main` (após CI passar) |
+| **GitHub Actions** ([`ci.yml`](../.github/workflows/ci.yml)) | Lint, type check, security scan, pytest (gate ≥ 60%), docker build validation | Push e PR (se caminhos monitorados mudarem) |
+| **Render webhook** | Build imagem + redeploy automático | Push em `main` (após CI passar) |
 
-Não há GitHub Actions para deploy — o Render escuta o webhook nativo do GitHub. **Menos secrets, menos código, fluxo mais simples.**
+**Caminhos monitorados no CI:**
+- `src/` — código
+- `tests/`, `evaluation/` — testes
+- `data/processed/ibov/model_lstm.keras` — modelo
+- `data/processed/agent_db/` — vector store
+- `src/serving/Dockerfile` — imagem
 
-Para forçar deploy manual fora do push:
+Não há GitHub Actions explícito para deploy — o Render escuta webhook nativo do GitHub. **Menos secrets, menos código, fluxo mais simples.**
+
+Para forçar deploy manual:
 ```bash
 # No dashboard do Render: Service → Manual Deploy → Deploy Latest Commit
 ```
@@ -161,6 +289,20 @@ dvc repro                    # roda o DAG inteiro
 dvc repro drift_check
 ```
 
-O resultado fica em `data/processed/ibov/drift_report.json` (versionado pelo Git, `cache: false` no DVC) e é também logado no MLflow (experiment `ibov-forecasting`, runs com `tags.pipeline_stage='monitoring'`).
+O resultado fica em `data/processed/ibov/drift_report.json` (versionado pelo Git, `cache: false` no DVC) e é também logado no MLflow.
 
-Threshold em `cfg.retrain.retrain_trigger_psi=0.20` — acima disso, classifica como `retrain_required` e a recomendação é rodar `python -m src.ibov_pipeline.retrain`.
+Threshold em `cfg.retrain.retrain_trigger_psi=0.20` — acima disso, classifica como `retrain_required` e recomenda rodar `python -m src.ibov_pipeline.retrain`.
+
+---
+
+## Resumo: Decisões Arquiteturais
+
+| Decisão | Razão |
+|---|---|
+| **Modelo + código no Git** | Simplicidade, reproducibilidade, compatível com Render free tier |
+| **DVC para treinamento** | Versionamento de dados/artefatos, pipeline reproducível |
+| **MLflow local** | Observabilidade em dev (métricas, parâmetros, drift) |
+| **Render sem persistent disk** | Free tier; modelo é imutável (gerado localmente) |
+| **GitHub webhook para deploy** | Menos infra, sem secrets extras |
+| **CI valida Docker build** | Garante que imagem sobe com modelo novo sem erros |
+

@@ -12,7 +12,7 @@ cp .env.example .env
 #   LANGFUSE_PUBLIC_KEY=... (https://cloud.langfuse.com — gratuito)
 #   LANGFUSE_SECRET_KEY=...
 
-python -m ipykernel install --user --name ibov_pipeline_env --display-name "Python (IBOV Pipeline)"
+python -m ipykernel install --user --name ibov_llm_pipeline_env --display-name "Python (IBOV Pipeline)"
 
 # === 1. Quality gate ANTES de qualquer treino ===
 pytest                                           # 48 testes, ≥60% coverage
@@ -22,7 +22,7 @@ python -m src.ibov_pipeline.make_dataset
 
 # === 3. EDA (independente do pipeline de produção) ===
 jupyter nbconvert --to notebook --execute \
-  --ExecutePreprocessor.kernel_name="ibov_pipeline_env" \
+  --ExecutePreprocessor.kernel_name="ibov_llm_pipeline_env" \
   --inplace notebooks/01_eda_ibov.ipynb
 
 # === 4. Pipeline de dados + treino ===
@@ -37,7 +37,7 @@ python -m src.ibov_pipeline.train_lstm
 
 # === 5. Relatório analítico (lê do MLflow) ===
 jupyter nbconvert --to notebook --execute \
-  --ExecutePreprocessor.kernel_name="ibov_pipeline_env" \
+  --ExecutePreprocessor.kernel_name="ibov_llm_pipeline_env" \
   --inplace notebooks/02_lstm_training_report.ipynb
 
 # === 6. Promoção ao Model Registry ===
@@ -54,3 +54,8 @@ python -m evaluation.ragas_eval         # 4 métricas RAGAS
 python -m evaluation.llm_judge          # 3 critérios de qualidade
 python -m evaluation.ab_test_prompts    # ≥ 3 system prompts
 python -m evaluation.benchmark_llm      # ≥ 3 configurações LLM
+
+# === 7. Relatório LLM  ===
+jupyter nbconvert --to notebook --execute \
+  --ExecutePreprocessor.kernel_name="ibov_llm_pipeline_env" \
+  --inplace notebooks/03_llm_evaluation.ipynb

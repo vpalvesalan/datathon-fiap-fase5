@@ -36,18 +36,29 @@ class InputGuardrail:
     """Valida e sanitiza input do usuário ANTES de enviar ao LLM."""
 
     INJECTION_PATTERNS: list[str] = [
-        r"ignore\s+(all\s+)?previous\s+instructions",
-        r"ignore\s+(all\s+)?previous\s+messages",
-        r"forget\s+(everything|all|your\s+instructions)",
-        r"you\s+are\s+now\s+a",
-        r"act\s+as\s+(?:a|an|the)\s+",
-        r"system\s*:\s*",
-        r"<\|im_start\|>",
-        r"<\|im_end\|>",
-        r"\[INST\]",
-        r"\[/INST\]",
-        r"###\s*system",
-    ]
+            # --- Padrões em Inglês ---
+            r"ignore\s+(all\s+)?previous\s+instructions",
+            r"ignore\s+(all\s+)?previous\s+messages",
+            r"forget\s+(everything|all|your\s+instructions)",
+            r"you\s+are\s+now\s+a",
+            r"act\s+as\s+(?:a|an|the)\s+",
+            
+            # --- Padrões em Português (Novos) ---
+            r"ignore\s+(todas\s+as\s+)?instruções\s+anteriores",
+            r"ignore\s+(todas\s+as\s+)?mensagens\s+anteriores",
+            r"esqueça\s+(tudo|todas\s+as\s+suas\s+instruções)",
+            r"você\s+agora\s+é\s+(?:um|uma)\s+",
+            r"aja\s+como\s+(?:um|uma|o|a)\s+",
+            r"responda\s+como\s+(?:um|uma|o|a)\s+",
+            
+            # --- Estruturais (Independem do idioma) ---
+            r"system\s*:\s*",
+            r"<\|im_start\|>",
+            r"<\|im_end\|>",
+            r"\[INST\]",
+            r"\[/INST\]",
+            r"###\s*system",
+        ]
 
     def __init__(self, max_length: int | None = None):
         self.max_length = max_length or agent_cfg.guardrails.max_input_length

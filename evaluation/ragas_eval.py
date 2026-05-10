@@ -9,17 +9,22 @@ Métricas avaliadas:
 - context_precision  — os trechos recuperados são úteis?
 - context_recall     — o ground truth está coberto pelos trechos?
 
-Persistência incremental:
+Persistência incremental com scores por pergunta:
 - Cada resposta gerada é gravada IMEDIATAMENTE em
-  `evaluation/results/ragas_responses.jsonl` (uma linha JSON por pergunta).
-- Se o script crashar (rate limit, CTRL+C, OOM), o progresso já está em disco.
-- Re-executar o script detecta as perguntas já respondidas e PULA — você
-  retoma de onde parou (ex: dia seguinte após reset do daily limit).
-- Para reprocessar do zero, apague o arquivo `.jsonl` antes.
+  `evaluation/results/ragas_responses.jsonl` (respostas, sem scores).
+- Após compilar dataset, calcula RAGAS e salva scores em
+  `evaluation/results/ragas_responses_with_scores.jsonl` (com 4 métricas por pergunta).
+- Salva as médias em `evaluation/results/ragas_metrics.json`.
+- Se o script crashar (rate limit, CTRL+C, OOM), o progresso de respostas está em disco.
+- Re-executar detecta perguntas já respondidas e PULA — você retoma de onde parou.
+- Para reprocessar do zero, apague ambos os `.jsonl` antes.
+
+LLM utilizado: Groq (llama-3.1-8b-instant) para embeddings/avaliação.
 
 Uso:
-    python -m evaluation.ragas_eval                # roda / retoma
-    rm evaluation/results/ragas_responses.jsonl    # reset duro
+    python -m evaluation.ragas_eval                           # roda / retoma
+    rm evaluation/results/ragas_responses.jsonl               # reset duro
+    rm evaluation/results/ragas_responses_with_scores.jsonl
 """
 from __future__ import annotations
 
@@ -38,8 +43,13 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 def _responses_path() -> Path:
-    """Caminho do arquivo incremental de respostas (sibling do metrics.json)."""
+    """Caminho do arquivo incremental de respostas (sem scores)."""
     return Path(agent_cfg.evaluation.ragas_output).parent / "ragas_responses.jsonl"
+
+
+def _responses_with_scores_path() -> Path:
+    """Caminho do arquivo com scores por pergunta."""
+    return Path(agent_cfg.evaluation.ragas_output).parent / "ragas_responses_with_scores.jsonl"
 
 
 def _load_existing(path: Path) -> list[dict]:
@@ -69,6 +79,34 @@ def _append_row(path: Path, row: dict) -> None:
         os.fsync(f.fileno())
 
 
+def _load_existing_scores(path: Path) -> dict[str, dict]:
+    """Lê scores já calculados (dict com question como chave)."""
+    if not path.exists():
+        return {}
+
+    scores_dict = {}
+    with open(path, encoding="utf-8") as f:
+        for line_no, raw in enumerate(f, 1):
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+                scores_dict[row["question"]] = row
+            except json.JSONDecodeError as exc:
+                logger.warning("Linha %d do JSONL inválida (%s) — pulando.", line_no, exc)
+    return scores_dict
+
+
+def _append_scores(path: Path, row: dict) -> None:
+    """Salva scores de forma durável."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
 # =============================================================================
 # Pipeline
 # =============================================================================
@@ -77,13 +115,15 @@ def evaluate_rag_pipeline(
     golden_set_path: str | None = None,
     output_path: str | None = None,
 ) -> dict[str, float]:
-    """Roda o agente em cada pergunta do golden_set e calcula RAGAS.
+    """Roda o agente em cada pergunta do golden_set e calcula RAGAS com Groq.
 
-    Comportamento incremental: respostas são gravadas em JSONL conforme
-    geradas. Re-executar pula perguntas já respondidas.
+    Comportamento incremental:
+    1. Respostas gravadas em ragas_responses.jsonl conforme geradas.
+    2. Scores calculados e gravados em ragas_responses_with_scores.jsonl.
+    3. Médias salvas em ragas_metrics.json.
 
     Returns:
-        Dicionário com as 4 métricas RAGAS.
+        Dicionário com as 4 métricas RAGAS (médias).
     """
     from datasets import Dataset
     from ragas import evaluate
@@ -93,6 +133,7 @@ def evaluate_rag_pipeline(
         context_recall,
         faithfulness,
     )
+    from langchain_groq import ChatGroq
 
     from src.agent_pipeline.rag_retriever import get_retriever
     from src.agent_pipeline.react_agent import create_copiloto_agent
@@ -147,31 +188,15 @@ def evaluate_rag_pipeline(
                 limiter.wait_if_needed()
                 logger.info("[%d/%d pendentes] %s", i, len(pending), q[:80])
 
-                # Invoca o agente com return_intermediate_steps=True (já é
-                # default no create_copiloto_agent) para capturar o trace.
                 result = agent.invoke({"input": q})
                 answer = result.get("output", "")
                 steps = result.get("intermediate_steps", [])
 
-                # contexts = o que o agente REALMENTE consumiu durante o
-                # raciocínio. Para queries que usam macro_rag, vem o trecho
-                # do PDF; para ibov_forecast/calculator/market_context, vem
-                # o output da tool. Cada context é prefixado com o nome da
-                # tool ([macro_rag], [ibov_forecast], …) para auditoria.
-                #
-                # Trade-off conhecido: para queries não-RAG, `context_recall`
-                # do RAGAS pode ficar mais ruidoso (compara texto curto de
-                # tool com ground_truth descritivo). Aceitável — mantém
-                # alinhamento com o que de fato foi consumido. Documentado
-                # no SYSTEM_CARD_AGENT.md, seção Limitações.
                 contexts = [
                     f"[{action.tool}] {str(observation)}"
                     for action, observation in steps
                 ]
 
-                # Fallback: se o agente respondeu direto sem usar nenhuma
-                # tool (raro com este prompt, mas pode acontecer em queries
-                # triviais), garante que RAGAS tenha algum contexto.
                 if not contexts:
                     ctx_docs = retriever.invoke(q)
                     contexts = [d.page_content for d in ctx_docs]
@@ -183,7 +208,7 @@ def evaluate_rag_pipeline(
                     "contexts": contexts,
                     "ground_truth": item.get("resposta_esperada", ""),
                 }
-                _append_row(jsonl_path, row)   # ← durável ANTES de continuar
+                _append_row(jsonl_path, row)
                 rows.append(row)
 
             except Exception as exc:  # noqa: BLE001
@@ -193,24 +218,71 @@ def evaluate_rag_pipeline(
                     q[:80], type(exc).__name__, exc,
                     len(rows), jsonl_path,
                 )
-                raise   # propaga — o que já foi salvo está em disco
+                raise
 
-    # --- RAGAS sobre TODAS as respostas (existentes + novas) ---
+    # --- RAGAS sobre TODAS as respostas com Groq (não OpenAI) ---
     if not rows:
         raise RuntimeError("Nenhuma resposta para avaliar.")
+
+    logger.info("Calculando RAGAS com Groq (llama-3.1-8b-instant) + Multilíngue embeddings...")
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY não definido. Defina a variável de ambiente.")
+
+    # Usar Groq como LLM para RAGAS (não OpenAI)
+    groq_llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.0, api_key=api_key)
+
+    # Usar multilíngue embeddings (leve, português funciona bem, ~30-50s em CPU)
+    from langchain_huggingface import HuggingFaceEmbeddings
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
     dataset = Dataset.from_list(rows)
     scores = evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+        llm=groq_llm,
+        embeddings=embeddings,
     )
 
+    # --- Extrair scores por pergunta e salvar incrementalmente ---
+    scores_path = _responses_with_scores_path()
+    existing_scores = _load_existing_scores(scores_path)
+
+    # scores é um Dataset com colunas: faithfulness, answer_relevancy, context_precision, context_recall
+    # + as colunas originais: question, answer, contexts, ground_truth
+    for idx, row_data in enumerate(scores):
+        question = row_data["question"]
+
+        # Se já calculado, pular
+        if question in existing_scores:
+            logger.debug("Score para '%s' já existe, pulando.", question[:60])
+            continue
+
+        score_row = {
+            "question": question,
+            "answer": row_data.get("answer", ""),
+            "faithfulness": float(row_data.get("faithfulness", 0)),
+            "answer_relevancy": float(row_data.get("answer_relevancy", 0)),
+            "context_precision": float(row_data.get("context_precision", 0)),
+            "context_recall": float(row_data.get("context_recall", 0)),
+        }
+        _append_scores(scores_path, score_row)
+        existing_scores[question] = score_row
+
+    logger.info("✓ Scores salvos em %s", scores_path)
+
+    # --- Calcular e salvar MÉDIAS ---
+    all_scores = list(existing_scores.values())
+    if not all_scores:
+        logger.warning("Nenhum score para calcular médias.")
+        return {}
+
     metrics = {
-        "faithfulness": float(scores["faithfulness"]),
-        "answer_relevancy": float(scores["answer_relevancy"]),
-        "context_precision": float(scores["context_precision"]),
-        "context_recall": float(scores["context_recall"]),
-        "n_questions": len(rows),
+        "faithfulness": float(sum(s["faithfulness"] for s in all_scores) / len(all_scores)),
+        "answer_relevancy": float(sum(s["answer_relevancy"] for s in all_scores) / len(all_scores)),
+        "context_precision": float(sum(s["context_precision"] for s in all_scores) / len(all_scores)),
+        "context_recall": float(sum(s["context_recall"] for s in all_scores) / len(all_scores)),
+        "n_questions": len(all_scores),
     }
 
     out_path = Path(output_path or agent_cfg.evaluation.ragas_output)

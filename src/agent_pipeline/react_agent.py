@@ -5,7 +5,7 @@ Language Models. https://arxiv.org/abs/2210.03629
 
 O agente recebe perguntas em linguagem natural sobre o IBOV e decide qual
 tool acionar (forecast, RAG, calculator, market_context). Toda a sequência
-Thought → Action → Observation é registrada via Langfuse para auditoria.
+Thought → Action → Observation é registrada via Langfuse/MLFlow para auditoria.
 """
 
 from __future__ import annotations

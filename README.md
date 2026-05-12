@@ -63,6 +63,26 @@ endpoint `/metrics` da nuvem.
 | Smoke check | `/health` |
 | Métricas Prometheus | `/metrics` |
 
+### Exemplos de perguntas para o Copiloto
+
+Acesse via **Gradio** (`/chat`) ou via **API REST**:
+
+```bash
+# Via curl (substitua <host> pela URL do Render ou localhost:7860)
+curl -X POST <host>/agent/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Qual a previsão do IBOV para amanhã? O contexto macroeconômico (S&P, cotação dólar) justifica a variação?"}'
+```
+
+Perguntas que exercitam as 4 tools do agente:
+
+| Pergunta | Tools acionadas |
+|---|---|
+| "Qual a previsão do IBOV para amanhã? O contexto macroeconômico (S&P, cotação dólar) justifica a variação?" | `ibov_forecast` + `market_context` |
+| "O que o relatório Focus diz sobre as expectativas de inflação para os próximos meses?" | `macro_rag` |
+| "Se o IBOV subir 2,5% amanhã partindo de 128.450 pontos, qual será o valor final?" | `calculator` |
+| "Quais são os principais riscos macroeconômicos para o mercado brasileiro citados nos relatórios do Copom?" | `macro_rag` |
+
 ## Quick Start
 
 ### Pré-requisitos
@@ -80,6 +100,8 @@ python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python -m spacy download pt_core_news_sm   # NER PT-BR para Presidio
+python -m ipykernel install --user --name ibov_llm_pipeline_env \
+  --display-name "Python (IBOV Pipeline)"  # kernel para os notebooks
 
 # 2. Variáveis de ambiente
 cp .env.example .env
@@ -90,7 +112,21 @@ dvc init        # uma vez só
 dvc repro       # roda: make_dataset → feature_engineering → drift_check
                 #       → train_baseline → ingest_agent_docs → train_lstm
 
-# 4. Servir
+# 4. (Opcional) Executar notebooks analíticos
+jupyter nbconvert --to notebook --execute --inplace \
+  --ExecutePreprocessor.kernel_name="ibov_llm_pipeline_env" \
+  notebooks/01_eda_ibov.ipynb               # EDA do IBOV
+jupyter nbconvert --to notebook --execute --inplace \
+  --ExecutePreprocessor.kernel_name="ibov_llm_pipeline_env" \
+  notebooks/02_lstm_training_report.ipynb   # Relatório do treino (lê do MLflow)
+jupyter nbconvert --to notebook --execute --inplace \
+  --ExecutePreprocessor.kernel_name="ibov_llm_pipeline_env" \
+  notebooks/03_llm_evaluation.ipynb         # Visualização da avaliação do LLM
+
+# 5. Smoke test do agente (CLI, antes de subir o servidor)
+python -m src.agent_pipeline.react_agent "Qual a previsão do IBOV para amanhã?"
+
+# 6. Servir
 uvicorn src.serving.app:app --host 0.0.0.0 --port 7860 --reload
 # Acessar http://localhost:7860/chat
 ```
@@ -175,9 +211,11 @@ datathon-techchallenge-fase-5/
 │       ├── drift_detection.py  # PSI + integração MLflow + JSON
 │       └── telemetry.py        # MLflow Tracing + Prometheus + Langfuse
 ├── tests/                      # 84 testes, cobertura 63% (gate ≥60%)
+│   └── README.md               # Guia da suite de testes (filosofia, fixtures, como rodar)
 ├── notebooks/
 │   ├── 01_eda_ibov.ipynb       # EDA: distribuições, sazonalidade, ACF, ADF
-│   └── 02_lstm_training_report.ipynb   # Relatório lendo do MLflow
+│   ├── 02_lstm_training_report.ipynb   # Relatório lendo do MLflow
+│   └── 03_llm_evaluation.ipynb # Visualização dos resultados de avaliação do LLM
 ├── evaluation/
 │   ├── ragas_eval.py           # 4 métricas RAGAS (incremental + retomada)
 │   ├── llm_judge.py            # ≥3 critérios de negócio

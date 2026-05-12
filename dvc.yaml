@@ -10,8 +10,9 @@
 #     dvc repro              # roda todo o DAG
 #     dvc dag                # visualiza grafo de dependências
 #
-# O remote para os artefatos (data/, modelos) é configurado separadamente:
-#     dvc remote add -d storage <s3://bucket | gdrive://... | local-path>
+# Artefatos de serving (model_lstm.keras, scaler.joblib, agent_db/) usam
+# cache: false e são versionados diretamente no git — sem necessidade de remote DVC.
+# Tensores de treino (X/y_train, X/y_test, holdout) ficam apenas no DVC cache local.
 # =============================================================================
 
 stages:
@@ -42,7 +43,8 @@ stages:
       - data/processed/ibov/X_test.npy
       - data/processed/ibov/y_train.npy
       - data/processed/ibov/y_test.npy
-      - data/processed/ibov/scaler.joblib
+      - data/processed/ibov/scaler.joblib:
+          cache: false   # artefato de serving — versionado no git para o build do Render
       - data/holdout_test/X_holdout.npy
       - data/holdout_test/y_holdout.npy
 
@@ -92,7 +94,8 @@ stages:
       - src/agent_pipeline/configs/agent_config.yaml
       - data/raw/agent_docs
     outs:
-      - data/processed/agent_db
+      - data/processed/agent_db:
+          cache: false   # vector store de serving — versionado no git para o build do Render
 
   # -------------------------------------------------------------------------
   # 6. LSTM — grid search com nested runs no MLflow
@@ -111,4 +114,5 @@ stages:
       - data/holdout_test/X_holdout.npy
       - data/holdout_test/y_holdout.npy
     outs:
-      - data/processed/ibov/model_lstm.keras
+      - data/processed/ibov/model_lstm.keras:
+          cache: false   # artefato de serving — versionado no git para o build do Render

@@ -1,0 +1,86 @@
+[
+  {
+    "pergunta": "Qual a previsão do IBOV para o próximo pregão?",
+    "resposta_esperada": "O agente deve invocar a tool ibov_forecast e retornar o preço previsto, último fechamento e variação percentual, com o disclaimer sobre acurácia direcional ~50%."
+  },
+  {
+    "pergunta": "Qual a expectativa do mercado para a Selic ao final de 2026 segundo o Focus mais recente?",
+    "resposta_esperada": "O agente deve invocar macro_rag, citar o relatório Focus específico e a página, e responder com o número exato encontrado no documento."
+  },
+  {
+    "pergunta": "Se o IBOV passar de 128.500 para 130.300, qual a variação percentual?",
+    "resposta_esperada": "O agente deve invocar a tool calculator com a expressão (130300 - 128500) / 128500 * 100 e retornar aproximadamente 1.40%."
+  },
+  {
+    "pergunta": "Como o dólar está hoje e qual a relação com a previsão do IBOV?",
+    "resposta_esperada": "O agente deve invocar market_context para obter USD/BRL, depois ibov_forecast, e contextualizar a relação inversa entre dólar e IBOV."
+  },
+  {
+    "pergunta": "Houve alguma decisão recente do Copom que possa explicar a volatilidade atual do IBOV?",
+    "resposta_esperada": "O agente deve invocar macro_rag, recuperar trechos da ata Copom mais recente, citar a fonte e correlacionar a redução da Selic com o aumento da incerteza no cenário internacional devido aos conflitos no Oriente Médio[cite: 4, 5]."
+  },
+  {
+    "pergunta": "Qual foi a taxa de crescimento do PIB brasileiro em 2025?",
+    "resposta_esperada": "O agente deve acessar o Relatório de Política Monetária e informar que o PIB cresceu 2,3% em 2025, apresentando desaceleração em relação ao ritmo registrado entre 2021 e 2024[cite: 4]."
+  },
+  {
+    "pergunta": "Quais são as projeções de crescimento do PIB para o ano de 2026?",
+    "resposta_esperada": "O agente deve invocar macro_rag e responder que a projeção de crescimento do PIB para 2026 permanece em 1,6%, sujeita a incertezas devido aos conflitos no Oriente Médio[cite: 4]."
+  },
+  {
+    "pergunta": "De acordo com o Morning Call da XP, qual foi a decisão do Copom sobre a Selic na reunião de abril de 2026?",
+    "resposta_esperada": "O agente deve informar que o Copom reduziu a taxa Selic em 0,25 p.p., para 14,50%, confirmando as expectativas do mercado[cite: 5]."
+  },
+  {
+    "pergunta": "Qual foi a justificativa do Federal Reserve para manter os juros em abril de 2026?",
+    "resposta_esperada": "O agente deve consultar o Morning Call da XP e responder que o Fed manteve a taxa entre 3,50% e 3,75% porque a inflação permanece elevada, refletindo o aumento recente nos preços globais de energia[cite: 5]."
+  },
+  {
+    "pergunta": "O que foi decidido pelo Senado em relação à indicação de Jorge Messias para o STF?",
+    "resposta_esperada": "O agente deve usar o macro_rag no relatório da XP e informar que o Senado rejeitou a indicação de Jorge Messias por 42 votos a 34[cite: 5]."
+  },
+  {
+    "pergunta": "Qual foi o desempenho do mercado de trabalho brasileiro no trimestre encerrado em janeiro de 2026?",
+    "resposta_esperada": "O agente deve citar o Relatório de Política Monetária, indicando que o mercado segue aquecido e a taxa de desocupação recuou para 5,3%, alcançando o menor nível das últimas décadas[cite: 4]."
+  },
+  {
+    "pergunta": "Qual foi o saldo de geração de empregos formais (Caged) em março de 2026 e a expectativa do mercado?",
+    "resposta_esperada": "O agente deve consultar a análise da XP, informando que houve criação líquida de 228,2 mil empregos formais, bem acima da expectativa do mercado de 148,6 mil[cite: 5]."
+  },
+  {
+    "pergunta": "Qual a projeção da XP Investimentos para a taxa Selic ao final de 2026?",
+    "resposta_esperada": "O agente deve recuperar a informação do Morning Call da XP de que a corretora projeta a taxa Selic em 13,50% ao final de 2026[cite: 5]."
+  },
+  {
+    "pergunta": "O que ocorreu com os preços do petróleo tipo Brent no final de abril de 2026?",
+    "resposta_esperada": "O agente deve reportar, baseado na análise da XP, que o preço se aproximou de US$ 120 por barril, impulsionado pelo impasse nas negociações entre EUA e Irã[cite: 5]."
+  },
+  {
+    "pergunta": "Por que o Comitê de Política Monetária (Copom) cortou a taxa Selic para 3,75% na reunião de março de 2020, durante a COVID?",
+    "resposta_esperada": "O agente deve consultar a ata da 229ª reunião e responder que o corte ocorreu para combater a desaceleração significativa do crescimento global e o choque causados pela pandemia do novo coronavírus[cite: 2]."
+  },
+  {
+    "pergunta": "Qual foi o déficit primário do governo central registrado em março de 2026?",
+    "resposta_esperada": "O agente deve informar, via relatório da XP, que o déficit foi de R$ 73,8 bilhões, fortemente impactado pelo pagamento de precatórios[cite: 5]."
+  },
+  {
+    "pergunta": "Como a decisão da Suprema Corte dos EUA afetou a política comercial no início de 2026?",
+    "resposta_esperada": "O agente deve citar o Relatório de Política Monetária informando que a Suprema Corte questionou a legalidade de parte das tarifas de importação de 2025, forçando o governo a implementar uma nova tarifa global menor e uniforme[cite: 4]."
+  },
+  {
+    "pergunta": "De acordo com o Relatório de Inflação de março de 2026, qual o comportamento da inflação de serviços?",
+    "resposta_esperada": "O agente deve constatar que a inflação de serviços segue elevada, influenciada pelo mercado de trabalho aquecido e pelo hiato do produto positivo, apesar de apresentar alguns sinais de moderação[cite: 4]."
+  },
+  {
+    "pergunta": "Qual era a expectativa mediana para o IPCA e para o PIB de 2020 segundo o relatório Focus de 6 de março de 2020?",
+    "resposta_esperada": "O agente deve consultar o relatório Focus e extrair que a expectativa para o IPCA era de 3,20% e para o PIB era de crescimento de 1,99%[cite: 3]."
+  },
+  {
+    "pergunta": "Qual a projeção de crescimento do saldo de crédito no Sistema Financeiro Nacional (SFN) para o ano de 2026?",
+    "resposta_esperada": "O agente deve utilizar o Relatório de Política Monetária para informar que a projeção de crescimento nominal do crédito foi revisada para 9,0% para 2026[cite: 4]."
+  },
+  {
+  "pergunta": "Segundo a ata do Copom de março de 2020, quais foram os impactos imediatos da pandemia de COVID-19 na economia global e nos mercados financeiros?",
+  "resposta_esperada": "O agente deve consultar a ata da 229ª reunião do Copom via macro_rag e responder que a pandemia provocou desaceleração do crescimento global, queda nos preços das commodities, aumento da volatilidade dos ativos, aversão ao risco e aperto substancial nas condições financeiras."
+}
+]

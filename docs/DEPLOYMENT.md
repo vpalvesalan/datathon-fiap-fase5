@@ -71,9 +71,11 @@ O dashboard "Copiloto IBOV — Operacional" é provisionado automaticamente no G
 ---
 
 Arquitetura:
-- **Local:** DVC treina → MLflow registra → Git versiona artefatos
-- **Cloud (Render):** Puxa código + modelo treinado → Serve sem retreinar
+- **Local:** DVC treina → MLflow registra → Git versiona artefatos de serving
+- **Cloud (Render):** Clona o repo (já com modelo) → `docker build` copia `data/processed/` → serve
 - **Observabilidade:** MLflow/Prometheus/Grafana rodam localmente (não em Render)
+
+> **Reprodutibilidade:** Os artefatos de serving (`model_lstm.keras`, `scaler.joblib`, `data/processed/agent_db/`) são versionados diretamente no git com `cache: false` no `dvc.yaml`. Tensores de treino (`X/y_train`, `X/y_test`, holdout) ficam apenas no DVC cache local — não são necessários para o Render.
 
 ```
 ┌──────────────────────────────────────────────────────────┐

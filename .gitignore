@@ -1,7 +1,14 @@
 # --- Dados ---
-# Ignorar pastas de dados brutos ou processados
-data/
+# Dados brutos e tensores de treino — grandes, não necessários em serving
+data/raw/
 raw_data/
+data/holdout_test/
+data/processed/ibov/X_train.npy
+data/processed/ibov/X_test.npy
+data/processed/ibov/y_train.npy
+data/processed/ibov/y_test.npy
+# Artefatos de serving (model_lstm.keras, scaler.joblib, agent_db/, drift_report.json)
+# são versionados no git via `cache: false` no dvc.yaml — necessários para o build do Render.
 *.csv
 *.xlsx
 *.parquet
@@ -10,9 +17,9 @@ raw_data/
 *.tar.gz
 
 # --- Modelos Treinados ---
-# Arquivos de modelos pesados (Pickle, joblib, TensorFlow, PyTorch)
+# Apenas formatos que nunca precisam ir ao Render; .keras e .joblib são permitidos
+# quando dentro de data/processed/ (versionados explicitamente no git).
 *.pkl
-*.joblib
 *.h5
 *.model
 *.pt

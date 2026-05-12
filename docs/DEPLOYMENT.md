@@ -2,6 +2,74 @@
 
 Este projeto separa **training (local)** de **serving (cloud)** com **observabilidade local**.
 
+---
+
+## 0. Rodando Localmente (do zero)
+
+Fluxo completo para subir e visualizar a aplicação na máquina de desenvolvimento, sem depender do Render.
+
+### Pré-requisitos
+
+- Python 3.12, Docker Desktop rodando
+- `GROQ_API_KEY` válida (obrigatório para o agente)
+- Dependências instaladas (`pip install -r requirements.txt`) e modelo spaCy baixado (`python -m spacy download pt_core_news_sm`)
+
+### Passo a passo
+
+**1. Treinar o modelo e construir o banco vetorial**
+
+```bash
+dvc repro
+# Executa: make_dataset → feature_engineering → drift_check
+#          → train_baseline → ingest_agent_docs → train_lstm → register_model
+# Resultado: data/processed/ibov/model_lstm.keras + data/processed/agent_db/
+```
+
+**2. Subir a API + Gradio**
+
+```bash
+# Terminal 1
+uvicorn src.serving.app:app --host 0.0.0.0 --port 7860 --reload
+```
+
+Aguarde a mensagem `Application startup complete.` e acesse:
+
+| Interface | URL |
+|---|---|
+| Chat (Gradio) | <http://localhost:7860/chat> |
+| API interativa (Swagger) | <http://localhost:7860/docs> |
+| Healthcheck | <http://localhost:7860/health> |
+
+**3. Testar o agente**
+
+Cole no Gradio ou via curl:
+
+```bash
+curl -X POST http://localhost:7860/agent/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Qual a previsão do IBOV para amanhã? O contexto macroeconômico (S&P, cotação dólar) justifica a variação?"}'
+```
+
+**4. (Opcional) Observabilidade completa**
+
+```bash
+# Terminal 2 — Prometheus + Grafana
+docker compose up -d
+
+# Terminal 3 — MLflow UI
+mlflow ui --port 5000
+```
+
+| Serviço | URL | Credenciais |
+|---|---|---|
+| Prometheus | <http://localhost:9090> | — |
+| Grafana | <http://localhost:3000> | `admin` / `admin` |
+| MLflow UI | <http://localhost:5000> | — |
+
+O dashboard "Copiloto IBOV — Operacional" é provisionado automaticamente no Grafana. As métricas começam a aparecer após as primeiras requisições à API.
+
+---
+
 Arquitetura:
 - **Local:** DVC treina → MLflow registra → Git versiona artefatos
 - **Cloud (Render):** Puxa código + modelo treinado → Serve sem retreinar

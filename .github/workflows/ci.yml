@@ -18,7 +18,7 @@ on:
       - 'data/processed/ibov/scaler.joblib'
       - 'data/processed/agent_db/'
       - 'data/processed/ibov/drift_report.json'
-      - 'src/serving/Dockerfile'
+      - 'Dockerfile'
   pull_request:
     branches: [main, develop]
 
@@ -55,7 +55,7 @@ jobs:
         continue-on-error: true
 
       - name: Security scan (bandit)
-        run: bandit -r src/ -ll -ii --exclude src/serving/Dockerfile
+        run: bandit -r src/ -ll -ii --exclude Dockerfile
 
       - name: Run tests with coverage gate
         run: pytest -m "not integration"
@@ -77,7 +77,7 @@ jobs:
       
       - name: Test Docker Build
         # Constrói a imagem para garantir que o Dockerfile compila sem erros
-        run: docker build -f src/serving/Dockerfile -t copiloto-ibov:latest .
+        run: docker build -f Dockerfile -t copiloto-ibov:latest .
 
   deploy_staging:
     name: Deploy to Render

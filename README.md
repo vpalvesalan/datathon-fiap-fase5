@@ -276,7 +276,7 @@ A cada push e PR:
 
 ### CD (Render)
 Auto-deploy nativo via webhook do GitHub — sem GitHub Actions adicionais. A cada
-push em `main`, Render rebuilda a imagem ([`src/serving/Dockerfile`](src/serving/Dockerfile)),
+push em `main`, Render rebuilda a imagem ([`Dockerfile`](../Dockerfile)),
 passa pelo healthcheck `/health` e migra o tráfego.
 
 Setup detalhado em [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).

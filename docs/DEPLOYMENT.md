@@ -123,7 +123,7 @@ Arquitetura:
 
 1. Criar conta em <https://render.com> (free tier).
 2. **New → Blueprint Instance → Connect GitHub** → escolher este repo.
-3. Render detecta o [`render.yaml`](../render.yaml) e propõe o serviço `copiloto-ibov`. Clique **Create**.
+3. Render detecta o [`render.yaml`](../render.yaml) e propõe o serviço `copiloto-ibov`. Se perguntar o runtime, selecione **Docker**. Clique **Deploy Web Service**.
 4. Após o primeiro build (~5 min), abra o serviço → aba **Environment** e configure as variáveis sensíveis:
 
    | Variável | Origem |
@@ -229,7 +229,7 @@ Render
 ### Estrutura da imagem Docker
 
 ```dockerfile
-# src/serving/Dockerfile (multi-stage build)
+# Dockerfile (multi-stage build)
 FROM python:3.12-slim AS builder
   # ... instala dependências ...
 
@@ -250,7 +250,7 @@ FROM python:3.12-slim AS runtime
 O arquivo [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) monitora:
 - Mudanças em `data/processed/ibov/model_lstm.keras` → dispara CI + deploy
 - Mudanças em `data/processed/agent_db/` → dispara CI + deploy
-- Mudanças em `src/serving/Dockerfile` → dispara CI (validação)
+- Mudanças em `Dockerfile` → dispara CI (validação)
 
 ---
 
@@ -338,7 +338,7 @@ docker compose down -v         # apaga volumes (limpa tudo)
 - `tests/`, `evaluation/` — testes
 - `data/processed/ibov/model_lstm.keras` — modelo
 - `data/processed/agent_db/` — vector store
-- `src/serving/Dockerfile` — imagem
+- `Dockerfile` — imagem
 
 Não há GitHub Actions explícito para deploy — o Render escuta webhook nativo do GitHub. **Menos secrets, menos código, fluxo mais simples.**
 

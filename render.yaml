@@ -26,7 +26,7 @@ services:
   - type: web
     name: copiloto-ibov
     runtime: docker
-    dockerfilePath: ./src/serving/Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free                # 512 MB RAM, sleeps após 15 min de inatividade
     region: oregon            # alterar se preferir outra região

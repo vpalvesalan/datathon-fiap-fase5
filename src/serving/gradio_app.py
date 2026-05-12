@@ -128,7 +128,7 @@ def build_gradio_blocks():
         theme=gr.themes.Soft(),
     ) as demo:
         gr.Markdown("""
-        # 🤖 Copiloto Analítico do IBOV
+        # 🤖 Copiloto Analítico do IBOV - Datathon FIAP fase 5.
 
         Pergunte sobre **previsão do índice**, **contexto macroeconômico**
         (Focus, Copom) ou peça **cálculos**. O agente decide quais

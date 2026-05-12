@@ -9,8 +9,8 @@ stages:
       size: 7676
     - path: src/ibov_pipeline/configs/model_config.yaml
       hash: md5
-      md5: 58be191ec97caa0e98e7dafd8a265250
-      size: 3458
+      md5: 3007352a56c481b857ad880a8777f0d6
+      size: 3460
     - path: src/ibov_pipeline/make_dataset.py
       hash: md5
       md5: 4931a2111f179a3cc14557daad408c19
@@ -18,23 +18,23 @@ stages:
     outs:
     - path: data/raw/ibov/ibov_close.csv
       hash: md5
-      md5: 5f5397ae5a98a087b36cfcabb850b2c0
-      size: 63546
+      md5: 97db70800e70478b3f999f35d671296e
+      size: 63721
   feature_engineering:
     cmd: python -m src.ibov_pipeline.feature_engineering
     deps:
     - path: data/raw/ibov/ibov_close.csv
       hash: md5
-      md5: 5f5397ae5a98a087b36cfcabb850b2c0
-      size: 63546
+      md5: 97db70800e70478b3f999f35d671296e
+      size: 63721
     - path: src/ibov_pipeline/config.py
       hash: md5
       md5: ae3b7079bfed5359d438c3e0d9be68a2
       size: 7676
     - path: src/ibov_pipeline/configs/model_config.yaml
       hash: md5
-      md5: 58be191ec97caa0e98e7dafd8a265250
-      size: 3458
+      md5: 3007352a56c481b857ad880a8777f0d6
+      size: 3460
     - path: src/ibov_pipeline/feature_engineering.py
       hash: md5
       md5: 6bd66d4b7d8f8f8ef9e44dc046ff6bbc
@@ -42,71 +42,71 @@ stages:
     outs:
     - path: data/holdout_test/X_holdout.npy
       hash: md5
-      md5: e50c23594775c96e67439516d004ff0b
+      md5: f63688800ee406c41fbc67ae0b91c260
       size: 85088
     - path: data/holdout_test/y_holdout.npy
       hash: md5
-      md5: 1d55507dba5dc4c93be944b7d7dbc85d
+      md5: 4763b7ead8961b6451ccb04cf3154215
       size: 1544
     - path: data/processed/ibov/X_test.npy
       hash: md5
-      md5: 2c4eb7f3241d0b2a009fae7029434b35
-      size: 152768
+      md5: 9c04c273b27d02084fa2a7800c046310
+      size: 153248
     - path: data/processed/ibov/X_train.npy
       hash: md5
-      md5: 17a7cc0caeab005caa777c8d047ecbec
-      size: 608768
+      md5: 95ec3d0ae4f512914d222cceef566450
+      size: 610688
     - path: data/processed/ibov/scaler.joblib
       hash: md5
-      md5: 5a82336a835bc194fa883d29bb1947a6
+      md5: c6dcc9417c5a0c3ffc36167ad13a7873
       size: 735
     - path: data/processed/ibov/y_test.npy
       hash: md5
-      md5: 5ac0efdc19a7e77804649111a288395f
-      size: 2672
+      md5: 11d402d043ed509bfc93b8500d426f7c
+      size: 2680
     - path: data/processed/ibov/y_train.npy
       hash: md5
-      md5: 84353c117fa0879aa83276392a3830a1
-      size: 10272
+      md5: b8e51126ba352533bbbb000d4b38d233
+      size: 10304
   train_baseline:
     cmd: python -m src.ibov_pipeline.train_baseline
     deps:
     - path: data/holdout_test/X_holdout.npy
       hash: md5
-      md5: e50c23594775c96e67439516d004ff0b
+      md5: f63688800ee406c41fbc67ae0b91c260
       size: 85088
     - path: data/holdout_test/y_holdout.npy
       hash: md5
-      md5: 1d55507dba5dc4c93be944b7d7dbc85d
+      md5: 4763b7ead8961b6451ccb04cf3154215
       size: 1544
     - path: data/processed/ibov/X_test.npy
       hash: md5
-      md5: 2c4eb7f3241d0b2a009fae7029434b35
-      size: 152768
+      md5: 9c04c273b27d02084fa2a7800c046310
+      size: 153248
     - path: data/processed/ibov/X_train.npy
       hash: md5
-      md5: 17a7cc0caeab005caa777c8d047ecbec
-      size: 608768
+      md5: 95ec3d0ae4f512914d222cceef566450
+      size: 610688
     - path: data/processed/ibov/scaler.joblib
       hash: md5
-      md5: 5a82336a835bc194fa883d29bb1947a6
+      md5: c6dcc9417c5a0c3ffc36167ad13a7873
       size: 735
     - path: data/processed/ibov/y_test.npy
       hash: md5
-      md5: 5ac0efdc19a7e77804649111a288395f
-      size: 2672
+      md5: 11d402d043ed509bfc93b8500d426f7c
+      size: 2680
     - path: data/processed/ibov/y_train.npy
       hash: md5
-      md5: 84353c117fa0879aa83276392a3830a1
-      size: 10272
+      md5: b8e51126ba352533bbbb000d4b38d233
+      size: 10304
     - path: src/ibov_pipeline/config.py
       hash: md5
       md5: ae3b7079bfed5359d438c3e0d9be68a2
       size: 7676
     - path: src/ibov_pipeline/configs/model_config.yaml
       hash: md5
-      md5: 58be191ec97caa0e98e7dafd8a265250
-      size: 3458
+      md5: 3007352a56c481b857ad880a8777f0d6
+      size: 3460
     - path: src/ibov_pipeline/train_baseline.py
       hash: md5
       md5: 9a9f73e9239350430473d8fa48090770
@@ -120,40 +120,40 @@ stages:
     deps:
     - path: data/holdout_test/X_holdout.npy
       hash: md5
-      md5: e50c23594775c96e67439516d004ff0b
+      md5: f63688800ee406c41fbc67ae0b91c260
       size: 85088
     - path: data/holdout_test/y_holdout.npy
       hash: md5
-      md5: 1d55507dba5dc4c93be944b7d7dbc85d
+      md5: 4763b7ead8961b6451ccb04cf3154215
       size: 1544
     - path: data/processed/ibov/X_test.npy
       hash: md5
-      md5: 2c4eb7f3241d0b2a009fae7029434b35
-      size: 152768
+      md5: 9c04c273b27d02084fa2a7800c046310
+      size: 153248
     - path: data/processed/ibov/X_train.npy
       hash: md5
-      md5: 17a7cc0caeab005caa777c8d047ecbec
-      size: 608768
+      md5: 95ec3d0ae4f512914d222cceef566450
+      size: 610688
     - path: data/processed/ibov/scaler.joblib
       hash: md5
-      md5: 5a82336a835bc194fa883d29bb1947a6
+      md5: c6dcc9417c5a0c3ffc36167ad13a7873
       size: 735
     - path: data/processed/ibov/y_test.npy
       hash: md5
-      md5: 5ac0efdc19a7e77804649111a288395f
-      size: 2672
+      md5: 11d402d043ed509bfc93b8500d426f7c
+      size: 2680
     - path: data/processed/ibov/y_train.npy
       hash: md5
-      md5: 84353c117fa0879aa83276392a3830a1
-      size: 10272
+      md5: b8e51126ba352533bbbb000d4b38d233
+      size: 10304
     - path: src/ibov_pipeline/config.py
       hash: md5
       md5: ae3b7079bfed5359d438c3e0d9be68a2
       size: 7676
     - path: src/ibov_pipeline/configs/model_config.yaml
       hash: md5
-      md5: 58be191ec97caa0e98e7dafd8a265250
-      size: 3458
+      md5: 3007352a56c481b857ad880a8777f0d6
+      size: 3460
     - path: src/ibov_pipeline/train_lstm.py
       hash: md5
       md5: 29a22375651593844998ac12d7e6d4d1
@@ -161,5 +161,55 @@ stages:
     outs:
     - path: data/processed/ibov/model_lstm.keras
       hash: md5
-      md5: 07574df0cf3cbab76e530ecaa4c99dc7
+      md5: 9cbe81537e40d4e07c4c571eac474a01
       size: 686748
+  drift_check:
+    cmd: python -m src.monitoring.drift_detection
+    deps:
+    - path: data/processed/ibov/X_test.npy
+      hash: md5
+      md5: 9c04c273b27d02084fa2a7800c046310
+      size: 153248
+    - path: data/processed/ibov/X_train.npy
+      hash: md5
+      md5: 95ec3d0ae4f512914d222cceef566450
+      size: 610688
+    - path: src/ibov_pipeline/config.py
+      hash: md5
+      md5: ae3b7079bfed5359d438c3e0d9be68a2
+      size: 7676
+    - path: src/monitoring/drift_detection.py
+      hash: md5
+      md5: 6f27c65a9b3b2576ca601c08f77b27aa
+      size: 4707
+    outs:
+    - path: data/processed/ibov/drift_report.json
+      hash: md5
+      md5: f2da98d436651ebf9f5ac03348015f82
+      size: 137
+  ingest_agent_docs:
+    cmd: python -m src.agent_pipeline.rag_retriever
+    deps:
+    - path: data/raw/agent_docs
+      hash: md5
+      md5: 18f82e16e4e8807b510baee9ab11251b.dir
+      size: 16752590
+      nfiles: 13
+    - path: src/agent_pipeline/config.py
+      hash: md5
+      md5: 05f9cd2041ed0716f64350f298b371f4
+      size: 5101
+    - path: src/agent_pipeline/configs/agent_config.yaml
+      hash: md5
+      md5: a43f85c8f98689b958c5456e3bb813e9
+      size: 2618
+    - path: src/agent_pipeline/rag_retriever.py
+      hash: md5
+      md5: 8145c7ffc56cc16ef5ab56acfc572c26
+      size: 3932
+    outs:
+    - path: data/processed/agent_db
+      hash: md5
+      md5: e7ecef30eb841a24320353c59d39f715.dir
+      size: 13279396
+      nfiles: 5

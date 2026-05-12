@@ -34,6 +34,7 @@ fastapi==0.136.1
 uvicorn==0.46.0
 python-multipart==0.0.27
 httpx==0.28.1
+gradio
 
 # --- Segurança (guardrails) ---
 presidio_analyzer==2.2.362

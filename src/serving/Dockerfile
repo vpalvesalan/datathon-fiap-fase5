@@ -35,9 +35,11 @@ COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
 # Código + artefatos de modelo (treinados localmente, versionados no Git)
+# model_lstm.keras, scaler.joblib, drift_report.json
+COPY data/processed/ibov/ /app/data/processed/ibov/
+# vector store ChromaDB (RAG)
+COPY data/processed/agent_db/ /app/data/processed/agent_db/
 COPY src/ /app/src/
-COPY data/processed/ibov/ /app/data/processed/ibov/     # model_lstm.keras, scaler.joblib, drift_report.json
-COPY data/processed/agent_db/ /app/data/processed/agent_db/  # vector store (RAG)
 
 # Usuário não-root
 RUN useradd -m -u 1000 apiuser && chown -R apiuser /app

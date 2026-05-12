@@ -123,9 +123,22 @@ def build_gradio_blocks():
     o módulo possa ser importado sem gradio instalado (testes)."""
     import gradio as gr
 
+    # CSS para garantir que a coluna de passos seja visível e tenha scroll amigável
+    custom_css = """
+    #steps-container {
+        min-height: 400px; 
+        max-height: 800px; 
+        overflow-y: auto !important;
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 8px;
+    }
+    """
+
     with gr.Blocks(
         title="Copiloto IBOV — Chat",
         theme=gr.themes.Soft(),
+        css=custom_css
     ) as demo:
         gr.Markdown("""
         # 🤖 Copiloto Analítico do IBOV - Datathon FIAP fase 5.
@@ -158,6 +171,7 @@ def build_gradio_blocks():
                 gr.Markdown("### Linha de raciocínio")
                 steps_out = gr.Markdown(
                     value="_(faça uma pergunta para ver os passos do agente)_",
+                    elem_id="steps-container"
                 )
 
         gr.Examples(
@@ -181,11 +195,13 @@ def build_gradio_blocks():
             fn=_on_submit,
             inputs=[question_in],
             outputs=[answer_out, steps_out],
+            show_progress="full"
         )
         question_in.submit(
             fn=_on_submit,
             inputs=[question_in],
             outputs=[answer_out, steps_out],
+            show_progress="full"
         )
         clear_btn.click(
             fn=lambda: ("", "", ""),
